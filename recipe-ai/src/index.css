@@ -1,0 +1,136 @@
+@import 'tailwindcss';
+
+/*
+  RecipeAI design tokens.
+  Warm beige / cream palette with olive-green and terracotta accents,
+  a typewriter (Courier Prime) + serif (Fraunces) type system.
+*/
+@theme {
+  /* Fonts */
+  --font-mono: 'Courier Prime', ui-monospace, 'Courier New', monospace;
+  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-hand: 'Caveat', 'Segoe Script', cursive; /* handwritten recipe titles */
+
+  /* Backgrounds */
+  --color-cream: #ffffff; /* app canvas */
+  --color-cream-100: #faf6ec; /* raised cards / sidebar */
+  --color-cream-200: #f5efe2;
+  --color-cream-300: #ede5d3; /* subtle borders */
+
+  /* Ink / text */
+  --color-ink: #2c2a22; /* headings */
+  --color-ink-soft: #55503f; /* body */
+  --color-ink-muted: #7a7462; /* captions — darkened slightly from #8f8a78 for AA-level legibility on cream, same warm-taupe hue */
+
+  /* Olive green accents */
+  --color-olive: #6f7d33; /* primary accent */
+  --color-olive-dark: #3a441c; /* dark buttons */
+  --color-olive-deep: #2f3717; /* darkest */
+  --color-olive-soft: #e7ead1; /* active nav pill */
+
+  /* Terracotta accent */
+  --color-terracotta: #bf4d2c;
+
+  /* Warm supporting hues used on feature cards */
+  --color-amber: #e6a93a;
+  --color-lilac: #b9a7d6;
+
+  /* Radii */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+
+  /* Shadows — soft, warm, premium */
+  --shadow-soft: 0 1px 2px rgba(60, 50, 30, 0.04),
+    0 6px 16px rgba(60, 50, 30, 0.06);
+  --shadow-card: 0 2px 4px rgba(60, 50, 30, 0.05),
+    0 12px 28px rgba(60, 50, 30, 0.08);
+  --shadow-lift: 0 8px 18px rgba(60, 50, 30, 0.1),
+    0 20px 40px rgba(60, 50, 30, 0.12);
+}
+
+/*
+  Shared typography helpers. These deduplicate label styles that were
+  previously repeated as identical inline utility strings across several
+  components. Values are unchanged from those originals, so rendering is
+  pixel-identical — this only centralises them in one place.
+
+  .type-eyebrow      — section kicker labels (12px olive, e.g. "Your Recipes")
+  .type-eyebrow-muted — sub-labels (11px muted, e.g. "Recent Recipes")
+*/
+@layer components {
+  .type-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--color-olive);
+  }
+  .type-eyebrow-muted {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--color-ink-muted);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-cream);
+  color: var(--color-ink-soft);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Thin, warm scrollbars so the fixed sidebar + scroll area feel refined */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cfc6b2 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #cfc6b2;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/*
+  One consistent keyboard-focus ring for every interactive element
+  (buttons, links, inputs). Follows the element's own border-radius and
+  uses the olive accent so focus reads the same across every fold.
+  Pointer interactions stay clean — this only shows for :focus-visible.
+*/
+:focus-visible {
+  outline: 2px solid var(--color-olive);
+  outline-offset: 2px;
+}
+
+/*
+  Respect users who prefer reduced motion: neutralise transitions,
+  animations and smooth scrolling for a calm, accessible experience.
+*/
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
