@@ -1,61 +1,109 @@
-import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
-import SearchBar from '../SearchBar/SearchBar'
+import { motion } from "framer-motion";
+import {
+  Zap,
+  Clock,
+ Sparkles,
+  Heart,
+  Wand2,
+} from "lucide-react";
 
-// Simple stagger container so the badge, title and subtitle cascade in.
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
-}
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+import SearchBar from "../SearchBar/SearchBar";
+
+const filters = [
+  {
+    id: 1,
+    text: "High protein dinner",
+    icon: Zap,
+    color: "text-orange-500",
+  },
+  {
+    id: 2,
+    text: "Under 30 mins",
+    icon: Clock,
+    color: "text-blue-500",
+  },
+  {
+    id: 3,
+    text: "Veg meals",
+    icon: Sparkles,
+    color: "text-green-500",
+  },
+  {
+    id: 4,
+    text: "Low calorie",
+    icon: Heart,
+    color: "text-red-400",
+  },
+  {
+    id: 5,
+    text: "Surprise me",
+    icon: Wand2,
+    color: "text-yellow-500",
+  },
+];
+
+function greetingForHour(hour) {
+  if (hour < 5) return "Good night";
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
-/**
- * Hero: AI-powered badge, RecipeAI wordmark, subtitle and the large search
- * bar — all centered on the page.
- */
-export default function Hero() {
+export default function Hero({ userName = "Ananya" }) {
+  const greeting = greetingForHour(new Date().getHours());
+
   return (
-    <section className="relative">
-      {/* Centered intro: badge, wordmark, subtitle */}
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="mx-auto flex max-w-2xl flex-col items-center text-center lg:-translate-x-8"
-      >
-        {/* Badge */}
-        <motion.div variants={item}>
-          <span className="inline-flex items-center gap-2 rounded-full bg-olive-soft px-4 py-1.5 text-[13px] font-normal text-olive-deep">
-            <Sparkles className="h-4 w-4 text-olive" strokeWidth={2} />
-            AI powered
-          </span>
-        </motion.div>
+    <section className="w-full">
 
-        {/* Wordmark */}
-        <motion.h1
-          variants={item}
-          className="mt-6 font-serif text-6xl font-semibold tracking-tight text-olive-deep sm:text-7xl"
-        >
-          Recipe<span className="text-terracotta">AI</span>
-        </motion.h1>
+      {/* Search Bar */}
+
+      <motion.div
+        initial={{ opacity: 0, y: 25 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: .5 }}
+        className="mt-8"
+      >
+
+        {/* Greeting */}
+
+        <p className="flex items-center gap-2 text-[18px] text-[#F28C28] font-medium">
+          🌿 {greeting}, {userName}! 👋
+        </p>
+
+        {/* Heading */}
+
+        <h1 className="mt-3 font-serif text-[55px] leading-[68px] font-bold text-[#1E2432] max-w-full">
+          What would you like to cook today?
+        </h1>
 
         {/* Subtitle */}
-        <motion.p
-          variants={item}
-          className="mt-4 max-w-md text-lg leading-relaxed text-ink-soft"
-        >
-          Your AI kitchen companion. Create healthier recipes for you and your
-          family.
-        </motion.p>
-      </motion.div>
 
-      {/* Search */}
-      <div className="relative z-10 mx-auto mt-8 max-w-4xl">
+        <p className="mt-4 mb-8 text-[20px] text-gray-500 max-w-[700px]">
+          Get personalized recipe ideas in seconds with Recipe AI.
+        </p>
+
         <SearchBar />
-      </div>
+
+        {/* Chips */}
+
+        <div className="mt-10 flex flex-wrap gap-4">
+
+          {filters.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.id}
+                className="flex items-center gap-2 rounded-full bg-[#F2F2F2] px-5 py-3 text-[13px] font-medium hover:bg-[#e8e8e8] transition"
+              >
+                <Icon className={`w-4 h-4 ${item.color}`} />
+                {item.text}
+              </button>
+            );
+          })}
+        </div>
+
+      </motion.div>
     </section>
-  )
+  );
 }

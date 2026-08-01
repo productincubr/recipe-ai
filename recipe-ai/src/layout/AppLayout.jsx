@@ -26,7 +26,7 @@ import useMediaQuery from '../hooks/useMediaQuery'
  */
 export default function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const drawerRef = useRef(null)
   const menuButtonRef = useRef(null)

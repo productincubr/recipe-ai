@@ -1,109 +1,157 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Sparkles, Camera, Mic, ArrowRight, Loader2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Sparkles,
+  Camera,
+  Mic,
+  ArrowRight,
+  Loader2,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-/**
- * The large hero search input: "Ask RecipeAI anything…" with camera,
- * microphone and send affordances. Triggers the backend AI generation.
- */
 export default function SearchBar() {
-  const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
+
     if (!query.trim() || loading) return;
 
     setLoading(true);
+
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://recipe-final-zjcl.onrender.com';
+      const baseUrl =
+        import.meta.env.VITE_API_BASE_URL ||
+        "https://recipe-final-zjcl.onrender.com";
+
       const response = await fetch(`${baseUrl}/api/recipes/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           dish: query,
-          goals: ['Healthy eating'] // Default goal
-        })
+          goals: ["Healthy eating"],
+        }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
-        // Successfully generated! Navigate to recipe details screen
-        setQuery('');
+        setQuery("");
         navigate(`/recipe/${data.id || data.recipe?.id || data.generated_recipe_id}`);
       } else {
-        console.error('Failed to generate recipe:', data);
-        alert(data.error || 'Failed to generate recipe. Check server logs.');
+        alert(data.error || "Something went wrong");
       }
-    } catch (error) {
-      console.error('Error calling generate API:', error);
-      alert('Network error. Is the backend running?');
+    } catch (err) {
+      console.error(err);
+      alert("Network Error");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <motion.form
       onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: -15 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.15 }}
-      className="flex items-center gap-3 rounded-3xl border border-cream-300 bg-cream-100 p-2.5 pl-5 shadow-card transition-shadow duration-300 ease-out focus-within:border-olive/40 focus-within:shadow-lift"
+      transition={{ duration: .4 }}
+      className="
+      flex
+      items-center
+      gap-4
+      h-[68px]
+      rounded-full
+      bg-[#F5F4F2]
+      px-6
+      shadow-sm
+
+      border
+      border-transparent
+
+      transition-all
+      duration-300
+
+      focus-within:border-[#D8D6D3]
+      focus-within:ring-2
+      focus-within:ring-[#E6E3DE]
+      "
     >
-      <Sparkles className="h-5 w-5 shrink-0 text-olive" strokeWidth={2} />
+      {/* Left Icon */}
+
+      <Sparkles
+        className="h-5 w-5 text-[#F5B400] shrink-0"
+        strokeWidth={2.2}
+      />
+
+      {/* Input */}
 
       <input
-        type="text"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Ask RecipeAI anything..."
         disabled={loading}
-        className="min-w-0 flex-1 bg-transparent text-[17px] text-ink placeholder:text-ink-muted focus:outline-none disabled:opacity-50"
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="let’s make a healthier version of your dish"
+        className="
+        flex-1
+        bg-transparent
+        border-none
+        outline-none
+        ring-0
+        focus:outline-none
+        focus:ring-0
+        focus:border-none
+        focus-visible:outline-none
+        focus-visible:ring-0
+        appearance-none
+      "
       />
 
       {/* Camera */}
-      <IconButton label="Scan a meal" onClick={() => console.log('Camera clicked')}>
-        <Camera className="h-5 w-5" strokeWidth={2} />
-      </IconButton>
 
-      {/* Microphone */}
-      <IconButton label="Voice input" onClick={() => console.log('Mic clicked')}>
-        <Mic className="h-5 w-5" strokeWidth={2} />
-      </IconButton>
+      <button
+        type="button"
+        className="text-[#8B8B8B] hover:text-black transition"
+      >
+        <Camera size={21} />
+      </button>
+
+      {/* Mic */}
+
+      <button
+        type="button"
+        className="text-[#8B8B8B] hover:text-black transition"
+      >
+        <Mic size={21} />
+      </button>
 
       {/* Send */}
+
       <motion.button
-        type="submit"
-        aria-label="Send"
-        disabled={loading}
+        whileTap={{ scale: .95 }}
         whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-olive text-cream-100 shadow-soft transition-colors hover:bg-olive-dark disabled:bg-olive/50 disabled:cursor-wait"
+        disabled={loading}
+        type="submit"
+        className="
+        h-11
+        w-11
+        rounded-full
+        bg-[#343434]
+        text-white
+        flex
+        items-center
+        justify-center
+        "
       >
         {loading ? (
-          <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.5} />
+          <Loader2 className="animate-spin" size={20} />
         ) : (
-          <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
+          <ArrowRight size={20} />
         )}
       </motion.button>
     </motion.form>
-  )
-}
-
-/** Small round icon button used for the camera + mic controls. */
-function IconButton({ children, label, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="hidden h-11 w-11 shrink-0 place-items-center rounded-full border border-cream-300 bg-cream-100 text-ink-soft transition-colors hover:bg-cream-200 hover:text-ink sm:grid"
-    >
-      {children}
-    </button>
-  )
+  );
 }

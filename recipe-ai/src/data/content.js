@@ -1,38 +1,3 @@
-// /**
-//  * Placeholder content for the hero feature cards and category chips.
-//  */
-// import { Camera, Soup, Leaf } from 'lucide-react'
-
-// /**
-//  * The four feature cards under the hero search bar.
-//  * `accent` maps to a color token used for the icon wash + arrow button.
-//  */
-// export const featureCards = [
-//   {
-//     id: 'scan-meal',
-//     title: 'Scan a Meal',
-//     description: 'Upload a photo of your dish to get recipe ideas.',
-//     icon: Camera,
-//     accent: 'amber',
-//   },
-//   {
-//     id: 'ingredients',
-//     title: 'Ingredients',
-//     description: 'Use ingredients you have at home',
-//     icon: Soup,
-//     accent: 'olive',
-//   },
-//   {
-//     id: 'superfoods',
-//     title: 'Superfoods',
-//     description: 'Discover nutrient-rich ingredients.',
-//     icon: Leaf,
-//     accent: 'terracotta',
-//   },
-// ]
-
-
-
 import { Camera, Soup, Leaf } from 'lucide-react'
 
 export const featureCards = [

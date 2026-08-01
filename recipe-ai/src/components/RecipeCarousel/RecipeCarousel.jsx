@@ -1,52 +1,107 @@
-import { useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import RecipeCard from '../RecipeCard/RecipeCard'
-import CarouselArrow from '../common/CarouselArrow'
-import { continueCookingRecipes } from '../../data/continueCooking'
+import { useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import RecipeCard from "../RecipeCard/RecipeCard";
 
-// Card width (300px) + gap (20px) — one "page" per arrow click.
-const SCROLL_STEP = 320
+import { continueCookingRecipes } from "../../data/continueCooking";
 
-/**
- * Horizontally scrollable recipe carousel with left/right navigation arrows.
- * Scrolling is native + smooth (scroll-snap); the arrows nudge the track by
- * one card. Cards overflow into a horizontal scroll on all breakpoints.
- */
+const CARD_WIDTH = 235;
+const GAP = 22;
+
 export default function RecipeCarousel() {
-  const trackRef = useRef(null)
+  const carouselRef = useRef(null);
 
-  const scrollBy = (direction) => {
-    trackRef.current?.scrollBy({
-      left: direction * SCROLL_STEP,
-      behavior: 'smooth',
-    })
-  }
+  const scroll = (direction) => {
+    carouselRef.current?.scrollBy({
+      left: direction * (CARD_WIDTH + GAP),
+      behavior: "smooth",
+    });
+  };
 
   return (
     <div className="relative">
-      {/* Left arrow */}
-      <CarouselArrow
-        side="left"
-        onClick={() => scrollBy(-1)}
-        icon={ChevronLeft}
-      />
 
-      {/* Scroll track */}
+      {/* Left Arrow */}
+
+      <button
+        onClick={() => scroll(-1)}
+        className="
+        absolute
+        left-[-22px]
+        top-1/2
+        z-20
+        -translate-y-1/2
+        h-12
+        w-12
+        rounded-full
+        border
+        border-[#E7E7E7]
+        bg-white
+        shadow-lg
+        flex
+        items-center
+        justify-center
+        transition-all
+        hover:scale-105
+        hover:bg-[#FAFAFA]
+        "
+      >
+        <ChevronLeft size={22} />
+      </button>
+
+      {/* Cards */}
+
       <div
-        ref={trackRef}
-        className="flex snap-x snap-mandatory items-stretch gap-5 overflow-x-auto scroll-smooth px-1 pb-4 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:px-2"
+        ref={carouselRef}
+        className="
+        flex
+        gap-[22px]
+        overflow-x-auto
+        scroll-smooth
+        pb-3
+        px-1
+
+        snap-x
+        snap-mandatory
+
+        scrollbar-hide
+        "
       >
         {continueCookingRecipes.map((recipe) => (
-          <RecipeCard key={recipe.id} recipe={recipe} />
+          <RecipeCard
+            key={recipe.id}
+            {...recipe}
+          />
         ))}
       </div>
 
-      {/* Right arrow */}
-      <CarouselArrow
-        side="right"
-        onClick={() => scrollBy(1)}
-        icon={ChevronRight}
-      />
+      {/* Right Arrow */}
+
+      <button
+        onClick={() => scroll(1)}
+        className="
+        absolute
+        right-[-22px]
+        top-1/2
+        z-20
+        -translate-y-1/2
+        h-12
+        w-12
+        rounded-full
+        border
+        border-[#E7E7E7]
+        bg-white
+        shadow-lg
+        flex
+        items-center
+        justify-center
+        transition-all
+        hover:scale-105
+        hover:bg-[#FAFAFA]
+        "
+      >
+        <ChevronRight size={22} />
+      </button>
+
     </div>
-  )
+  );
 }

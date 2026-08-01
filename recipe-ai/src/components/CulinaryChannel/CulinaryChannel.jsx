@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import FeatureBadge from './FeatureBadge'
 import VideoGrid from './VideoGrid'
 import Fold4Decor from '../Fold4Decor/Fold4Decor'
-import culinaryBowl from '../../assets/food/culinary-bowl.png'
+import culinaryHero from '../../assets/images/HeroImageArea.png'
 import {
   channelFeatures,
   channelHero,
@@ -36,14 +36,14 @@ export default function CulinaryChannel() {
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, amount: 0.12 }}
-      className="relative"
+      className="relative -mt-10 sm:-mt-12"
     >
       {/* Section-scoped SVG UI decorations (Fold 4 only). */}
       <Fold4Decor />
 
       <div className="relative z-10 space-y-10">
         {/* Top: header + feature badges (left) / culinary bowl (right) */}
-        <div className="grid items-center gap-10 lg:grid-cols-2">
+        <div className="grid items-start gap-10 lg:grid-cols-2">
           {/* Left column */}
           <div>
             <p className="type-eyebrow">
@@ -52,7 +52,7 @@ export default function CulinaryChannel() {
             <h2 className="mt-2 font-serif text-4xl font-semibold leading-[1.1] tracking-tight text-ink sm:text-5xl">
               Inspiration,
               <br />
-              cooked <span className="text-olive">daily.</span>
+              cooked <span className="italic text-[#027F7B]">daily.</span>
             </h2>
             <p className="mt-3 max-w-md leading-relaxed text-ink-soft">
               Watch, learn &amp; cook with our chef-curated videos.
@@ -66,8 +66,8 @@ export default function CulinaryChannel() {
             </div>
           </div>
 
-          {/* Right column — "View all videos" + the culinary bowl */}
-          <div className="flex h-full flex-col self-stretch">
+          {/* Right column — "View all videos" + the culinary photo */}
+          <div className="flex flex-col">
             {/* View all videos — top-right of the section header */}
             <div className="mb-5 flex justify-end sm:mb-6">
               <motion.button
@@ -82,19 +82,24 @@ export default function CulinaryChannel() {
               </motion.button>
             </div>
 
-            {/* Bowl stays vertically centred in the remaining space. */}
-            <div className="relative flex-1 content-center">
-              {/* Linen cloth backdrop */}
+            {/* Photo */}
+            <div className="relative">
+              {/* Cream backdrop, offset behind the photo */}
               <div
                 aria-hidden="true"
-                className="absolute -inset-3 -rotate-1 rounded-[2rem] bg-gradient-to-br from-cream-100 to-cream-200 shadow-soft sm:-inset-4"
+                className="absolute -inset-3 -rotate-1 rounded-[2rem]  shadow-soft sm:-inset-4"
               />
 
-              <img
-                src={culinaryBowl}
+              <motion.img
+                src={culinaryHero}
                 alt={channelHero.alt}
                 loading="lazy"
-                className="relative mx-auto w-56 select-none object-contain drop-shadow-[0_18px_30px_rgba(30,25,10,0.18)] sm:w-72 lg:w-[26rem]"
+                initial={{ opacity: 0, scale: 0.94, rotate: 1 }}
+                whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                whileHover={{ scale: 1.02, rotate: -0.5 }}
+                transition={{ type: 'spring', stiffness: 220, damping: 20 }}
+                className="relative mx-auto aspect-[4/5] w-full max-w-sm select-none rounded-[2rem] object-cover shadow-lift sm:max-w-md lg:max-w-lg"
               />
             </div>
           </div>
@@ -106,13 +111,13 @@ export default function CulinaryChannel() {
         </div>
 
         {/* Bottom information strip */}
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-2 text-ink-soft">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-2 text-ink-soft border-t-2">
           {channelStrip.map((item, i) => (
             <div key={item} className="flex items-center gap-2 sm:gap-4">
               {i > 0 && (
                 <span aria-hidden="true" className="h-4 w-px bg-cream-300" />
               )}
-              <span className="text-[14px] font-normal sm:text-[15px]">
+              <span className="text-[14px] font-normal sm:text-[15px] ">
                 {item}
               </span>
             </div>

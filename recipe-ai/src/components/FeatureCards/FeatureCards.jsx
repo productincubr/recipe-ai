@@ -1,30 +1,69 @@
-import { motion } from 'framer-motion'
-import FeatureCard from './FeatureCard'
-import { featureCards } from '../../data/content'
+import { motion } from "framer-motion";
+import { Camera, Upload, Compass } from "lucide-react";
+import FeatureCard from "./FeatureCard";
 
-// Stagger the cards in as a group.
+// import scanMealImg from "../../assets/cards/scan-meal.png";
+// import uploadIngredientsImg from "../../assets/cards/upload-ingredients.png";
+// import discoverImg from "../../assets/cards/discover-superfoods.png";
+
 const list = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.1, delayChildren: 0.25 } },
-}
+  show: {
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.15,
+    },
+  },
+};
 
-/**
- * Responsive grid of the feature cards.
- * Desktop: 2 cards in row 1, last card spans the full width.
- * Mobile: all cards stack in a single column.
- * Render this component ONCE per page.
- */
+const CARDS = [
+  {
+    id: "scan-meal",
+    title: "Scan Meal",
+    description: "Get an AI curated healthier version in seconds",
+    cta: "Scan Meal",
+    icon: Camera,
+    bg: "#FB8D02",
+    image:
+      "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&auto=format&fit=crop",
+  },
+  {
+    id: "upload",
+    title: "Upload Your Ingredients",
+    description: "Combine for a great healthier output",
+    cta: "Upload Ingredients",
+    icon: Upload,
+    bg: "#0A8B86",
+    image:
+      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&auto=format&fit=crop",
+  },
+  {
+    id: "discover",
+    title: "Discover Superfoods",
+    description: "Combine for a great healthier output",
+    cta: "Explore Now",
+    icon: Compass,
+    bg: "#FB8D02",
+    image:
+      "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&auto=format&fit=crop",
+  },
+];
+
 export default function FeatureCards() {
   return (
     <motion.div
       variants={list}
       initial="hidden"
       animate="show"
-      className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-5 md:grid-cols-2 md:gap-6"
+      className="grid gap-5 lg:grid-cols-3 md:grid-cols-2 grid-cols-1"
     >
-      {featureCards.map((card, i) => (
-        <FeatureCard key={card.id} {...card} fullWidth={i === featureCards.length - 1} />
+      {CARDS.map((card) => (
+        <FeatureCard
+          key={card.id}
+          {...card}
+          onAction={() => console.log(card.id)}
+        />
       ))}
     </motion.div>
-  )
+  );
 }

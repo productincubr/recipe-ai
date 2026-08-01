@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import TrendingRecipeCard from './TrendingRecipeCard'
+import RecipeCard from '../RecipeCard/RecipeCard'
 import CarouselArrow from '../common/CarouselArrow'
 import { trendingRecipes } from '../../data/trendingRecipes'
 
@@ -33,7 +33,7 @@ export default function TrendingCarousel() {
         className="flex snap-x snap-mandatory items-stretch gap-5 overflow-x-auto scroll-smooth px-1 pb-4 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:px-2"
       >
         {trendingRecipes.map((recipe) => (
-          <TrendingRecipeCard key={recipe.id} recipe={recipe} />
+          <RecipeCard key={recipe.id} {...recipe} />
         ))}
       </div>
 

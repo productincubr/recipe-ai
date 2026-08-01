@@ -50,12 +50,12 @@ export const videoTagThemes = {
 }
 
 /**
- * The culinary bowl shown on the right of the section header. The image itself
- * is the uploaded culinary-bowl.png asset (imported directly in the component);
+ * The hero photo shown on the right of the section header. The image itself
+ * is the uploaded HeroImageArea.png asset (imported directly in the component);
  * only the alt text lives here.
  */
 export const channelHero = {
-  alt: 'Fresh chickpea, avocado and roasted vegetable bowl',
+  alt: 'Two friends cooking together in the kitchen, sharing fresh vegetables',
 }
 
 /**

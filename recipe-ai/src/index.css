@@ -89,21 +89,29 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Thin, warm scrollbars so the fixed sidebar + scroll area feel refined */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #cfc6b2 transparent;
-}
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*::-webkit-scrollbar-thumb {
-  background-color: #cfc6b2;
-  border-radius: 9999px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
+/*
+  Thin, warm scrollbars so the fixed sidebar + scroll area feel refined.
+  Lives in @layer base so component utilities like `[scrollbar-width:none]`
+  (in Tailwind's utilities layer, which wins by default layer order) can
+  still opt individual scrollers out of this — unlayered rules would
+  otherwise beat every layered utility regardless of source order.
+*/
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cfc6b2 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #cfc6b2;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 /*
@@ -133,4 +141,11 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+input:focus,
+input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
