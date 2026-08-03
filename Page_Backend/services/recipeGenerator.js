@@ -165,8 +165,8 @@ export const generateHealthyRecipeText = async (inputs) => {
     logger.warn('GROQ_API_KEY is not defined. Falling back to local recipe generation.');
     const fallbackRecipe = getFallbackRecipe(dishName, goals);
     fallbackRecipe.optimization_plan = optimizationPlan;
-    const safety_review = validateGeneratedRecipe(fallbackRecipe, inputs, evidence.summary);
-    
+    const safety_review = validateGeneratedRecipe(fallbackRecipe, inputs, evidence.summary, recipeUnderstanding);
+
     return {
       success: true,
       recipe: fallbackRecipe,
@@ -188,7 +188,7 @@ export const generateHealthyRecipeText = async (inputs) => {
       
       // Agent 1: Combined Recipe Generation (Blueprint & Steps)
       logger.info(`Phase 2: Invoking Combined Recipe Generation (Blueprint & Steps)`);
-      const combinedRecipe = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary);
+      const combinedRecipe = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding);
       if (combinedRecipe && combinedRecipe.token_metrics) {
         totalPromptTokens += combinedRecipe.token_metrics.prompt_tokens || 0;
         totalCompletionTokens += combinedRecipe.token_metrics.completion_tokens || 0;
@@ -225,7 +225,7 @@ export const generateHealthyRecipeText = async (inputs) => {
       }
 
       logger.info(`Phase 3: Running Rule-Based Validators on draft recipe`);
-      validatedResult = validateGeneratedRecipe(draftRecipe, inputs, evidence.summary);
+      validatedResult = validateGeneratedRecipe(draftRecipe, inputs, evidence.summary, recipeUnderstanding);
 
       // Calculate combined safety confidence (weighted average)
       const ruleConfidence = validatedResult.confidence;
@@ -275,7 +275,7 @@ export const generateHealthyRecipeText = async (inputs) => {
     total_tokens: 0,
     model_used: 'local_fallback'
   };
-  const safety_review = validateGeneratedRecipe(fallbackRecipe, inputs, evidence.summary);
+  const safety_review = validateGeneratedRecipe(fallbackRecipe, inputs, evidence.summary, recipeUnderstanding);
 
   return {
     success: true,

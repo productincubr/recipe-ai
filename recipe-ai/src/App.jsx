@@ -8,6 +8,7 @@ import MealPlanner from './pages/MealPlanner'
 import ShoppingList from './pages/ShoppingList'
 import Nutrition from './pages/Nutrition'
 import RecipeDetails from './pages/RecipeDetails'
+import CreateRecipe from './pages/CreateRecipe'
 
 /**
  * Root of the RecipeAI front-end.
@@ -17,6 +18,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Standalone full-screen wizard — no sidebar/navbar chrome */}
+        <Route path="/create" element={<CreateRecipe />} />
         <Route element={<AppLayout />}>
           <Route index element={<Home />} />
           <Route path="/recipe/:id" element={<RecipeDetails />} />

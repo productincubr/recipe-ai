@@ -19,7 +19,7 @@ export const generateRecipe = async (req, res) => {
     return res.status(400).json({ error: inputValidation.error });
   }
 
-  const { dish, goals } = req.body;
+  const { dish, goals, allergies, dietaryPreferences, spiceLevel } = req.body;
 
   // Run Pre-generation Contradiction Check
   const preCheck = checkPreContradictions(req.body);
@@ -64,7 +64,11 @@ export const generateRecipe = async (req, res) => {
     // Step 3: Save generated recipe and request history to Supabase (Database & Storage)
     let savedRecord;
     try {
-      savedRecord = await saveRecipe(recipe, dish, goals);
+      savedRecord = await saveRecipe(recipe, dish, goals, {
+        allergies,
+        dietaryPreference: dietaryPreferences,
+        spiceLevel
+      });
       logger.info(`Recipe generation successfully saved to database with ID: ${savedRecord.id}`);
     } catch (dbError) {
       logger.warn('Failed to save generated recipe to database. Proceeding with in-memory payload.', { error: dbError.message });

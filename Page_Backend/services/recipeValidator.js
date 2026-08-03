@@ -581,10 +581,68 @@ export const validateCuisineModule = (recipe, cuisine) => {
 };
 
 /**
+ * Checks that the final recipe still resembles the dish the user asked for —
+ * i.e. its traditional/identity-defining ingredients weren't silently dropped
+ * in the name of "healthifying" it (e.g. "Rajma Chawal" losing its kidney
+ * beans and rice). An ingredient is allowed to be missing only if the
+ * optimization plan recorded an explicit, reasoned swap for it.
+ */
+// Generic category words that are too broad to prove a match on their own —
+// "Kidney beans" and "Lima Beans" both contain "beans", but that shouldn't
+// count as the same ingredient. Only used to de-weight a token; the more
+// specific word(s) in the ingredient name (e.g. "kidney", "rajma") still
+// have to actually appear for a match.
+const GENERIC_FOOD_WORDS = new Set([
+  'bean', 'beans', 'rice', 'oil', 'sauce', 'curry', 'gravy', 'powder',
+  'leaves', 'leaf', 'paste', 'seed', 'seeds', 'meat', 'spice', 'spices',
+  'masala', 'stew', 'soup', 'vegetable', 'vegetables', 'flour', 'milk',
+  'cream', 'butter', 'cheese', 'sugar', 'salt'
+]);
+
+export const validateDishIdentityModule = (recipe, primaryIngredients = [], optimizationPlan = {}) => {
+  const warnings = [];
+
+  if (!primaryIngredients || primaryIngredients.length === 0) {
+    return { isValid: true, warnings, missingCount: 0 };
+  }
+
+  const approvedSwaps = (optimizationPlan.swaps || []).map(s => (s.originalIngredient || '').toLowerCase());
+  const finalIngredientsText = (recipe.ingredients || []).map(ing => (ing.name || '').toLowerCase()).join(' | ');
+
+  let missingCount = 0;
+  for (const original of primaryIngredients) {
+    const originalLower = (original || '').toLowerCase();
+    if (!originalLower) continue;
+
+    const tokens = originalLower.split(/[^a-z]+/).filter(t => t.length > 2);
+    // Prefer the specific/distinctive tokens; only fall back to the generic
+    // ones if that's all the ingredient name has (e.g. "Rice" on its own).
+    const specificTokens = tokens.filter(t => !GENERIC_FOOD_WORDS.has(t));
+    const matchTokens = specificTokens.length > 0 ? specificTokens : tokens;
+
+    const isPresent = finalIngredientsText.includes(originalLower) || matchTokens.some(t => finalIngredientsText.includes(t));
+    const wasApprovedSwap = approvedSwaps.some(swap =>
+      swap.includes(originalLower) || originalLower.includes(swap) || matchTokens.some(t => swap.includes(t))
+    );
+
+    if (!isPresent && !wasApprovedSwap) {
+      missingCount++;
+      warnings.push(`Dish identity check: Traditional ingredient "${original}" is missing from the final recipe with no documented swap reason — it may no longer resemble "${recipe.dish_name}".`);
+    }
+  }
+
+  return {
+    isValid: missingCount === 0,
+    warnings,
+    missingCount
+  };
+};
+
+/**
  * End-To-End validation orchestrator.
  * Combines separate validator sub-modules to compute a weighted safety confidence rating.
  */
-export const validateGeneratedRecipe = (recipe, inputs, evidenceSummary = '') => {
+export const validateGeneratedRecipe = (recipe, inputs, evidenceSummary = '', recipeUnderstanding = {}) => {
   const {
     goals = [],
     medicalConditions = [],
@@ -599,7 +657,8 @@ export const validateGeneratedRecipe = (recipe, inputs, evidenceSummary = '') =>
     medicalRestrictions: true,
     nutritionGoals: true,
     dietaryPreference: true,
-    ingredientAvailability: true
+    ingredientAvailability: true,
+    dishIdentity: true
   };
 
   let errors = [];
@@ -621,10 +680,11 @@ export const validateGeneratedRecipe = (recipe, inputs, evidenceSummary = '') =>
   const nutritionRes = validateNutritionRangeModule(recipe);
   const evidenceRes = validateEvidenceModule(recipe, evidenceSummary);
   const cuisineRes = validateCuisineModule(recipe, cuisine);
+  const identityRes = validateDishIdentityModule(recipe, recipeUnderstanding.primaryIngredients, recipe.optimization_plan);
 
   // Accumulate issues
   errors = [...errors, ...allergyRes.errors, ...dietRes.errors, ...medicalRes.errors];
-  warnings = [...warnings, ...medicalRes.warnings, ...goalsRes.warnings, ...nutritionRes.warnings, ...evidenceRes.warnings, ...cuisineRes.warnings];
+  warnings = [...warnings, ...medicalRes.warnings, ...goalsRes.warnings, ...nutritionRes.warnings, ...evidenceRes.warnings, ...cuisineRes.warnings, ...identityRes.warnings];
 
   // Disliked Ingredients check
   const ingredientsList = (recipe.ingredients || []).map(ing => (ing.name || '').toLowerCase());
@@ -650,20 +710,23 @@ export const validateGeneratedRecipe = (recipe, inputs, evidenceSummary = '') =>
   checks.medicalRestrictions = medicalRes.isValid;
   checks.nutritionGoals = goalsRes.isValid && nutritionRes.isValid;
   checks.ingredientAvailability = dislikedIngredients.length === 0 || !errors.some(e => e.includes('Disliked'));
+  checks.dishIdentity = identityRes.isValid;
 
   // Calculate Weighted Confidence Score:
-  // - Allergy: 30%
-  // - Medical: 30%
-  // - Goal: 20%
+  // - Allergy: 25%
+  // - Medical: 25%
+  // - Goal: 15%
   // - Nutrition Range: 10%
-  // - Evidence Match: 10%
-  let allergyWeight = allergyRes.isValid && dietRes.isValid ? 30 : 0;
-  let medicalWeight = medicalRes.isValid ? 30 : 0;
-  let goalWeight = goalsRes.isValid ? 20 : Math.max(0, 20 - goalsRes.warnings.length * 5);
+  // - Evidence Match: 5%
+  // - Dish Identity (stays recognizable as the requested dish): 20%
+  let allergyWeight = allergyRes.isValid && dietRes.isValid ? 25 : 0;
+  let medicalWeight = medicalRes.isValid ? 25 : 0;
+  let goalWeight = goalsRes.isValid ? 15 : Math.max(0, 15 - goalsRes.warnings.length * 4);
   let nutritionWeight = nutritionRes.isValid ? 10 : 5;
-  let evidenceWeight = evidenceRes.isValid ? 10 : Math.max(0, 10 - evidenceRes.warnings.length * 3);
+  let evidenceWeight = evidenceRes.isValid ? 5 : Math.max(0, 5 - evidenceRes.warnings.length * 2);
+  let identityWeight = identityRes.isValid ? 20 : Math.max(0, 20 - identityRes.missingCount * 7);
 
-  let confidence = allergyWeight + medicalWeight + goalWeight + nutritionWeight + evidenceWeight;
+  let confidence = allergyWeight + medicalWeight + goalWeight + nutritionWeight + evidenceWeight + identityWeight;
 
   return {
     isValid: errors.length === 0,

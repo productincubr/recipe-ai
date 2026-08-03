@@ -5,53 +5,20 @@ import {
   Camera,
   Mic,
   ArrowRight,
-  Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!query.trim() || loading) return;
+    if (!query.trim()) return;
 
-    setLoading(true);
-
-    try {
-      const baseUrl =
-        import.meta.env.VITE_API_BASE_URL ||
-        "https://recipe-final-zjcl.onrender.com";
-
-      const response = await fetch(`${baseUrl}/api/recipes/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dish: query,
-          goals: ["Healthy eating"],
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setQuery("");
-        navigate(`/recipe/${data.id || data.recipe?.id || data.generated_recipe_id}`);
-      } else {
-        alert(data.error || "Something went wrong");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Network Error");
-    } finally {
-      setLoading(false);
-    }
+    navigate("/create", { state: { dish: query.trim() } });
   };
 
   return (
@@ -92,7 +59,6 @@ export default function SearchBar() {
 
       <input
         value={query}
-        disabled={loading}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="let’s make a healthier version of your dish"
         className="
@@ -133,7 +99,6 @@ export default function SearchBar() {
       <motion.button
         whileTap={{ scale: .95 }}
         whileHover={{ scale: 1.05 }}
-        disabled={loading}
         type="submit"
         className="
         h-11
@@ -146,11 +111,7 @@ export default function SearchBar() {
         justify-center
         "
       >
-        {loading ? (
-          <Loader2 className="animate-spin" size={20} />
-        ) : (
-          <ArrowRight size={20} />
-        )}
+        <ArrowRight size={20} />
       </motion.button>
     </motion.form>
   );

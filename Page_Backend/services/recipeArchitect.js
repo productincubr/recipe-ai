@@ -9,7 +9,7 @@ const httpsAgent = new https.Agent({
 /**
  * Generates both the structural blueprint and detailed cookbook steps in a single call.
  */
-export const buildRecipeBlueprint = async (dishName, inputs, optimizationPlan, evidenceSummary) => {
+export const buildRecipeBlueprint = async (dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure = {}) => {
   const apiKey = process.env.GROQ_API_KEY_ARCHITECT || process.env.GROQ_API_KEY;
   const modelName = 'llama-3.1-8b-instant';
 
@@ -90,7 +90,8 @@ export const buildRecipeBlueprint = async (dishName, inputs, optimizationPlan, e
 
   try {
     const systemPrompt = `Role: Professional Recipe Architect & Cookbook Writer.
-Task: Design structural blueprint & cooking steps for a healthy recipe.
+Task: Design structural blueprint & cooking steps for a healthy recipe that stays faithful to the requested dish.
+CORE RULE: The final "ingredients" list MUST still include every ingredient in TRADITIONAL CORE INGREDIENTS below, unless PROPOSED OPTIMIZATIONS explicitly swaps it out (that list is the only authorized set of substitutions — do not invent your own). Healthify the dish through quantities, cooking method, added vegetables, and the adjustments already given to you, not by silently replacing what makes the dish "${dishName}".
 Output: Strict JSON matching schema. NO prose, NO markdown blocks (\`\`\`json), NO wrapper text.
 
 JSON Schema:
@@ -130,8 +131,14 @@ JSON Schema:
   }]
 }`;
 
-    const userPrompt = `Create a healthy recipe blueprint with detailed sequential cooking steps for the dish: "${dishName}"
+    const traditionalIngredients = recipeStructure.primaryIngredients || [];
 
+    const userPrompt = `Create a healthy recipe blueprint with detailed sequential cooking steps for the dish: "${dishName}"
+${traditionalIngredients.length > 0 ? `
+TRADITIONAL CORE INGREDIENTS (must appear in the final "ingredients" list unless swapped below):
+${traditionalIngredients.join(', ')}
+Cuisine: ${recipeStructure.cuisine || 'Generic'}
+` : ''}
 USER HEALTH SPECIFICATIONS:
 Goals: ${(inputs.goals || []).join(', ')}
 Conditions: ${(inputs.medicalConditions || []).join(', ')}

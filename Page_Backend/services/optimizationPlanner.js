@@ -30,8 +30,11 @@ export const planOptimizations = async (recipeStructure, healthProfile, evidence
 
   try {
     const systemPrompt = `Role: Clinical recipe optimization planner.
-Task: Design healthy substitutions & cooking method adjustments.
+Task: Design healthy substitutions & cooking method adjustments while preserving the dish's identity.
 Caution: DO NOT write recipes.
+
+CORE RULE: "Primary Ingredients" are what make this dish recognizable as itself (e.g. the bean in a bean dish, the grain in a rice dish, the protein in a meat dish). Do NOT put a primary ingredient in "swaps" to change its fundamental category (e.g. rice -> quinoa, kidney beans -> lima beans, chicken -> tofu) UNLESS the user's allergies, medical conditions, or dietary preference make the original ingredient unsafe or non-compliant. Every "swaps" entry for a primary ingredient must name the specific allergy/condition/diet that required it in "reason" — if none applies, do not swap it. For primary ingredients with no such conflict, improve them via "methodAdjustments" instead (e.g. white rice -> brown rice, less oil/ghee, more fiber, portion control) so the dish stays recognizable and still tastes like what the user asked for.
+
 Output: Strict JSON matching schema. NO prose, NO markdown blocks (\`\`\`json), NO wrapper text.
 
 JSON Schema:
@@ -70,7 +73,7 @@ Dislikes: ${(healthProfile.dislikedIngredients || []).join(', ')}
 CLINICAL EVIDENCE BASE:
 ${evidenceSummary}
 
-Design a clear optimization plan with swaps and adjustments. Follow all allergy and dietary restrictions strictly.`;
+Design a clear optimization plan. Only add a "swaps" entry for a primary ingredient if it directly conflicts with an allergy, medical condition, or dietary preference listed above — name which one in "reason". For every other primary ingredient, leave its category untouched and instead add a "methodAdjustments" entry (healthier variety of the same ingredient, less oil/sugar/salt, more fiber/veggies) so the final dish still tastes and looks like "${recipeStructure.recipe}". Follow all allergy and dietary restrictions strictly.`;
 
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',

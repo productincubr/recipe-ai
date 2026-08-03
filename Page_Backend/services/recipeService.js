@@ -94,9 +94,10 @@ export const uploadImageToStorage = async (base64DataUrl, dishName) => {
  * @param {object} recipeData - The recipe details.
  * @param {string} dishQuery - The original user search string.
  * @param {string[]} selectedGoals - Array of selected goals.
+ * @param {object} [preferences] - Remaining wizard selections (allergies, dietaryPreference, spiceLevel).
  * @returns {Promise<object>} - Saved recipe record.
  */
-export const saveRecipe = async (recipeData, dishQuery, selectedGoals) => {
+export const saveRecipe = async (recipeData, dishQuery, selectedGoals, preferences = {}) => {
   try {
     logger.info(`Saving recipe for "${recipeData.dish_name}" to database...`);
 
@@ -164,7 +165,10 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals) => {
       logger.error('Failed to log token metrics to local file:', { error: err.message });
     }
 
-    // Attempt to log request metadata along with token metrics in public.recipe_requests
+    // Attempt to log request metadata along with token metrics and the
+    // remaining wizard selections (allergies, cooking style, taste & spice)
+    // in public.recipe_requests
+    const { allergies, dietaryPreference, spiceLevel } = preferences;
     const requestData = {
       dish_query: dishQuery,
       selected_goals: selectedGoals,
@@ -172,7 +176,10 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals) => {
       prompt_tokens: metrics.prompt_tokens,
       completion_tokens: metrics.completion_tokens,
       total_tokens: metrics.total_tokens,
-      model_used: metrics.model_used
+      model_used: metrics.model_used,
+      allergies: allergies || [],
+      dietary_preference: dietaryPreference || null,
+      spice_level: spiceLevel || null
     };
 
     let { error: requestError } = await supabase
@@ -180,19 +187,36 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals) => {
       .insert(requestData);
 
     if (requestError) {
-      // If error is because columns don't exist, retry without token metrics
+      // If error is because columns don't exist (older DB not yet migrated),
+      // retry with progressively fewer optional columns.
       if (requestError.code === '42703' || requestError.message.includes('column')) {
-        logger.warn('Token metrics columns not found in database. Retrying insert without token metrics.');
-        const fallbackRequestData = {
-          dish_query: dishQuery,
-          selected_goals: selectedGoals,
-          generated_recipe_id: recipe.id
-        };
-        const { error: fallbackError } = await supabase
+        logger.warn('Wizard preference columns not found in database. Retrying insert without them.');
+        const { error: noPrefsError } = await supabase
           .from('recipe_requests')
-          .insert(fallbackRequestData);
-        if (fallbackError) {
-          logger.error('Failed to log request metadata in database:', { error: fallbackError.message });
+          .insert({
+            dish_query: dishQuery,
+            selected_goals: selectedGoals,
+            generated_recipe_id: recipe.id,
+            prompt_tokens: metrics.prompt_tokens,
+            completion_tokens: metrics.completion_tokens,
+            total_tokens: metrics.total_tokens,
+            model_used: metrics.model_used
+          });
+
+        if (noPrefsError && (noPrefsError.code === '42703' || noPrefsError.message.includes('column'))) {
+          logger.warn('Token metrics columns not found in database. Retrying insert without token metrics.');
+          const { error: fallbackError } = await supabase
+            .from('recipe_requests')
+            .insert({
+              dish_query: dishQuery,
+              selected_goals: selectedGoals,
+              generated_recipe_id: recipe.id
+            });
+          if (fallbackError) {
+            logger.error('Failed to log request metadata in database:', { error: fallbackError.message });
+          }
+        } else if (noPrefsError) {
+          logger.error('Failed to log request metadata in database:', { error: noPrefsError.message });
         }
       } else {
         logger.error('Failed to log request metadata in database:', { error: requestError.message });
