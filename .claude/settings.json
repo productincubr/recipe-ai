@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill //PID 14712 //F)",
+      "Bash(taskkill //PID 19108 //F)",
+      "Bash(node debug_click.js)",
+      "Bash(curl -sf http://localhost:5183)",
+      "Bash(sed 's/button:has-text\\(\"Choose Image\"\\)/label:has-text\\(\"Choose Image\"\\)/' debug_click.js)",
+      "Bash(node debug_click2.js)",
+      "Bash(sed 's/Lean AI is analyzing your meal/Analyzing your meal/' check_scan.js)",
+      "Bash(node check_scan2.js)",
+      "Bash(taskkill //PID 29256 //F)",
+      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\\\\n\" -X POST https://recipe-final-zjcl.onrender.com/api/recipes/scan -H \"Content-Type: application/json\" -d '{\"image\":\"abc\"}')",
+      "Bash(node check_cards.js)",
+      "Bash(node check_cards2.js)",
+      "Bash(taskkill //PID 31572 //F)",
+      "Bash(sed \"s/gemini-2.0-flash/gemini-flash-latest/\" test_gemini.js)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\\\\n\" -X POST http://localhost:3000/api/recipes/scan -H \"Content-Type: application/json\" -d @scan_payload2.json)",
+      "Bash(node check_scan_live.js)",
+      "Bash(taskkill //PID 33528 //F)",
+      "Bash(taskkill //PID 33764 //F)"
+    ]
+  }
+}

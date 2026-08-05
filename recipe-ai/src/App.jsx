@@ -9,6 +9,7 @@ import ShoppingList from './pages/ShoppingList'
 import Nutrition from './pages/Nutrition'
 import RecipeDetails from './pages/RecipeDetails'
 import CreateRecipe from './pages/CreateRecipe'
+import ScanMeal from './pages/ScanMeal'
 
 /**
  * Root of the RecipeAI front-end.
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/create" element={<CreateRecipe />} />
         <Route element={<AppLayout />}>
           <Route index element={<Home />} />
+          <Route path="/scan" element={<ScanMeal />} />
           <Route path="/recipe/:id" element={<RecipeDetails />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved" element={<SavedRecipes />} />

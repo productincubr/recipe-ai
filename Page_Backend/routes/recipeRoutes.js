@@ -1,5 +1,5 @@
 import express from 'express';
-import { generateRecipe, generateRecipeImage, getRecipeById } from '../controllers/recipeController.js';
+import { generateRecipe, generateRecipeImage, getRecipeById, scanMeal } from '../controllers/recipeController.js';
 
 const router = express.Router();
 
@@ -20,5 +20,11 @@ router.post('/generate', generateRecipe);
  * @desc    Generates photorealistic imagery of a dish on-demand.
  */
 router.post('/generate-image', generateRecipeImage);
+
+/**
+ * @route   POST /api/recipes/scan
+ * @desc    Analyzes an uploaded meal photo (base64) and returns detected dish, nutrition & ingredients.
+ */
+router.post('/scan', scanMeal);
 
 export default router;

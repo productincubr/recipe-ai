@@ -72,6 +72,7 @@ export const channelVideos = [
       'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=700&h=500&fit=crop',
     tags: ['Vegetarian', 'Quick Meal'],
     duration: '08:24',
+    youtubeId: 'OrKuktJqGJo',
   },
   {
     id: 'tofu-stir-fry-bowl',
@@ -81,6 +82,7 @@ export const channelVideos = [
       'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=700&h=500&fit=crop',
     tags: ['High Protein', 'Low Calorie'],
     duration: '09:15',
+    youtubeId: 'U67i1TAIr2U',
   },
   {
     id: 'quinoa-veggie-bowl',
@@ -90,6 +92,7 @@ export const channelVideos = [
       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=700&h=500&fit=crop',
     tags: ['High Fiber', 'Vegan'],
     duration: '07:48',
+    youtubeId: 'mPaJFxzwi-U',
   },
   {
     id: 'berry-smoothie-bowl',
@@ -99,6 +102,7 @@ export const channelVideos = [
       'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=700&h=500&fit=crop',
     tags: ['Antioxidant Rich', 'No Sugar Added'],
     duration: '08:03',
+    youtubeId: 's9f08Qsz-KE',
   },
   {
     id: 'stuffed-bell-peppers',
@@ -108,6 +112,7 @@ export const channelVideos = [
       'https://images.unsplash.com/photo-1600335895229-6e75511892c8?w=700&h=500&fit=crop',
     tags: ['Vegetarian', 'High Protein'],
     duration: '10:12',
+    youtubeId: 'Go_v-2MLxCw',
   },
   {
     id: 'chocolate-avocado-mousse',
@@ -117,6 +122,7 @@ export const channelVideos = [
       'https://images.unsplash.com/photo-1541599540903-216a46ca1dc0?w=700&h=500&fit=crop',
     tags: ['Healthy Dessert', 'Gluten Free'],
     duration: '05:47',
+    youtubeId: 'wuZffe60q4M',
   },
 ]
 

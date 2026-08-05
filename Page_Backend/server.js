@@ -2,9 +2,16 @@
 // Essential for bypassing antivirus/firewall HTTPS intercepts on Node.js native fetch/axios calls
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
+import { Agent, setGlobalDispatcher } from 'undici';
 import dotenv from 'dotenv';
 import app from './app.js';
 import logger from './config/logger.js';
+
+// NODE_TLS_REJECT_UNAUTHORIZED alone does not cover Node's native fetch (undici) —
+// it only affects the legacy http/https modules (used by axios). Supabase's client
+// calls fetch directly, so give undici's global dispatcher the same bypass or every
+// Supabase request fails outright on networks with SSL-intercepting antivirus/firewalls.
+setGlobalDispatcher(new Agent({ connect: { rejectUnauthorized: false } }));
 
 // Load environment variables from .env
 dotenv.config();

@@ -25,8 +25,8 @@ app.use(cors({
   credentials: true
 }));
 
-// Standard JSON request body parser middleware
-app.use(express.json());
+// Standard JSON request body parser middleware (raised limit to allow base64-encoded meal photos)
+app.use(express.json({ limit: '12mb' }));
 
 // Application Routing Modules
 app.use('/api/recipes', recipeRoutes);

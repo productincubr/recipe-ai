@@ -3,6 +3,7 @@ import { generateHealthyRecipeText } from '../services/recipeGenerator.js';
 import { generateDishImage } from '../services/stability.js';
 import { saveRecipe, uploadImageToStorage } from '../services/recipeService.js';
 import { validateInputs, checkPreContradictions } from '../services/recipeValidator.js';
+import { scanMealImage } from '../services/mealScanner.js';
 
 /**
  * Handles HTTP requests for E2E healthy recipe generation.
@@ -166,5 +167,25 @@ export const getRecipeById = async (req, res) => {
   } catch (error) {
     logger.error(`Error fetching recipe by id ${id}:`, { error: error.message });
     return res.status(500).json({ error: 'Failed to fetch recipe' });
+  }
+};
+
+/**
+ * Scans a meal photo and returns the detected dish, nutrition, and ingredients.
+ */
+export const scanMeal = async (req, res) => {
+  const { image, mimeType } = req.body;
+
+  if (!image) {
+    return res.status(400).json({ success: false, error: 'image (base64) is required.' });
+  }
+
+  try {
+    logger.info('Analyzing uploaded meal photo via Gemini Vision...');
+    const result = await scanMealImage(image, mimeType || 'image/jpeg');
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Meal scan failed:', { error: error.message });
+    return res.status(500).json({ success: false, error: error.message || 'Failed to analyze the photo.' });
   }
 };

@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Camera, Upload, Compass } from "lucide-react";
 import FeatureCard from "./FeatureCard";
 
@@ -26,6 +27,7 @@ const CARDS = [
     bg: "#FB8D02",
     image:
       "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&auto=format&fit=crop",
+    to: "/scan",
   },
   {
     id: "upload",
@@ -36,6 +38,7 @@ const CARDS = [
     bg: "#0A8B86",
     image:
       "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&auto=format&fit=crop",
+    to: "/scan",
   },
   {
     id: "discover",
@@ -46,10 +49,13 @@ const CARDS = [
     bg: "#FB8D02",
     image:
       "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&auto=format&fit=crop",
+    to: "/nutrition",
   },
 ];
 
 export default function FeatureCards() {
+  const navigate = useNavigate();
+
   return (
     <motion.div
       variants={list}
@@ -61,7 +67,7 @@ export default function FeatureCards() {
         <FeatureCard
           key={card.id}
           {...card}
-          onAction={() => console.log(card.id)}
+          onAction={() => navigate(card.to)}
         />
       ))}
     </motion.div>

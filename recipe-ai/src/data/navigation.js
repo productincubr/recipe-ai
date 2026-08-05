@@ -9,11 +9,13 @@ import {
   CalendarDays,
   ShoppingBag,
   BarChart3,
+  Camera,
 } from 'lucide-react'
 
 /** Primary sidebar navigation items. */
 export const sidebarLinks = [
   { label: 'Home', icon: Home, to: '/', badge: null },
+  { label: 'Scan a meal', icon: Camera, to: '/scan', badge: null },
   { label: 'History', icon: History, to: '/history', badge: null },
   { label: 'Saved recipes', icon: Bookmark, to: '/saved', badge: 12 },
   { label: 'Meal planner', icon: CalendarDays, to: '/meal-planner', badge: null },

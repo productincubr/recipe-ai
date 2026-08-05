@@ -97,6 +97,7 @@ export default function RecipeDetails() {
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   const [saved, setSaved] = useState(false);
   const [savingBookmark, setSavingBookmark] = useState(false);
@@ -105,14 +106,37 @@ export default function RecipeDetails() {
   const cardRef = useRef(null);
 
   useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://recipe-final-zjcl.onrender.com';
+
+    const generateImage = async (recipeId, dishName) => {
+      setImageLoading(true);
+      try {
+        const res = await fetch(`${baseUrl}/api/recipes/generate-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipeId, dishName }),
+        });
+        const result = await res.json();
+        if (res.ok && result.image_url) {
+          setRecipe((prev) => (prev ? { ...prev, image_url: result.image_url } : prev));
+        }
+      } catch (err) {
+        // Non-fatal — the "No Image Available" placeholder stays up.
+      } finally {
+        setImageLoading(false);
+      }
+    };
+
     const fetchRecipe = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://recipe-final-zjcl.onrender.com';
         const res = await fetch(`${baseUrl}/api/recipes/${id}`);
         const result = await res.json();
 
         if (res.ok && result.success) {
           setRecipe(result.data);
+          if (!result.data.image_url && result.data.dish_name) {
+            generateImage(result.data.id ?? id, result.data.dish_name);
+          }
         } else {
           setError(result.error || 'Recipe not found');
         }
@@ -302,8 +326,15 @@ export default function RecipeDetails() {
               />
             </div>
           ) : (
-            <div className="w-full md:w-80 h-56 rounded-2xl bg-cream-100 border border-cream-300 shrink-0 flex items-center justify-center text-ink-muted text-sm">
-              No Image Available
+            <div className="w-full md:w-80 h-56 rounded-2xl bg-cream-100 border border-cream-300 shrink-0 flex flex-col items-center justify-center gap-2 text-ink-muted text-sm">
+              {imageLoading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  Generating image...
+                </>
+              ) : (
+                'No Image Available'
+              )}
             </div>
           )}
         </div>
