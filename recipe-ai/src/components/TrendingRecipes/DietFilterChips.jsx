@@ -35,7 +35,7 @@ export default function DietFilterChips() {
 
       <div
         ref={scrollerRef}
-        className="flex flex-1 gap-2.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex min-w-0 flex-1 gap-2.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {DIETS.map(({ id, label, icon: Icon, iconClass }) => (
           <button

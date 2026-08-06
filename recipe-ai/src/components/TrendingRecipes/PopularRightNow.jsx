@@ -43,7 +43,7 @@ export default function PopularRightNow() {
 
           <div
             ref={scrollerRef}
-            className="flex flex-1 gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex min-w-0 flex-1 gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {FILTERS.map((label) => (
               <motion.button
