@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import DietFilterChips from './DietFilterChips'
 import TrendingCarousel from './TrendingCarousel'
@@ -18,6 +19,8 @@ const reveal = {
  * carousel. Sits directly beneath the "recently viewed" fold (Fold 2).
  */
 export default function TrendingRecipes() {
+  const navigate = useNavigate()
+
   return (
     <motion.section
       variants={reveal}
@@ -45,7 +48,7 @@ export default function TrendingRecipes() {
           type="button"
           whileHover={{ scale: 1.03, x: 2 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => console.log('View all recipes')}
+          onClick={() => navigate('/history')}
           className="flex items-center gap-2 rounded-full border border-cream-300 px-5 py-2.5 text-[15px] font-normal text-ink-soft shadow-soft transition-colors hover:bg-cream-100"
         >
           View all recipes

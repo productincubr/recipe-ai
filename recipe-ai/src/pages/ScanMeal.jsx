@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -54,6 +54,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function ScanMeal() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [stage, setStage] = useState('upload'); // upload | analyzing | results | error
   const [imagePreview, setImagePreview] = useState(null);
@@ -104,6 +105,16 @@ export default function ScanMeal() {
       setStage('error');
     }
   };
+
+  useEffect(() => {
+    const incomingFile = location.state?.file;
+    if (!incomingFile) return;
+
+    navigate(location.pathname, { replace: true, state: null });
+    const timer = setTimeout(() => handleFile(incomingFile), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const handleDrop = (e) => {
     e.preventDefault();

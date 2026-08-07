@@ -15,6 +15,8 @@ import {
   Salad,
   Ban,
   Star,
+  ArrowRightLeft,
+  Wrench,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
@@ -237,6 +239,9 @@ export default function RecipeDetails() {
   if (error || !recipe) return <div className="p-8 text-center text-red-500">{error}</div>;
 
   const badges = buildBadges(preferences, recipe);
+  const optimizationPlan = recipe.optimization_plan || location.state?.optimizationPlan;
+  const swaps = optimizationPlan?.swaps || [];
+  const methodAdjustments = optimizationPlan?.methodAdjustments || [];
 
   return (
     <div className="max-w-6xl mx-auto p-6 sm:p-10">
@@ -372,6 +377,58 @@ export default function RecipeDetails() {
               <strong className="text-ink block mb-1">Why it's healthier</strong>
               {recipe.healthier_explanation}
             </p>
+          </div>
+        )}
+
+        {(swaps.length > 0 || methodAdjustments.length > 0) && (
+          <div className="mb-8">
+            <p className="flex items-center gap-2 text-sm font-semibold text-olive-dark mb-3">
+              <ArrowRightLeft size={16} />
+              Healthy ingredient swaps
+            </p>
+            <div className="space-y-3">
+              {swaps.map((swap, i) => (
+                <div
+                  key={`swap-${i}`}
+                  className="rounded-2xl border border-cream-300 bg-white p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-600">
+                      {swap.originalIngredient}
+                    </span>
+                    <ArrowRightLeft size={14} className="text-ink-muted" />
+                    <span className="rounded-full bg-olive-soft px-3 py-1 text-olive-deep">
+                      {swap.substitutedWith}
+                    </span>
+                  </div>
+                  {swap.reason && (
+                    <p className="mt-2 text-sm text-ink-soft leading-relaxed">{swap.reason}</p>
+                  )}
+                  {swap.clinicalBenefit && (
+                    <p className="mt-1 text-xs text-ink-muted leading-relaxed">
+                      {swap.clinicalBenefit}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {methodAdjustments.map((adj, i) => (
+                <div
+                  key={`method-${i}`}
+                  className="rounded-2xl border border-cream-300 bg-cream-100/50 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                    <Wrench size={14} className="text-ink-muted" />
+                    <span>{adj.originalMethod}</span>
+                    <ArrowRightLeft size={14} className="text-ink-muted" />
+                    <span className="text-olive-deep">{adj.adjustedMethod}</span>
+                  </div>
+                  {adj.reason && (
+                    <p className="mt-2 text-sm text-ink-soft leading-relaxed">{adj.reason}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

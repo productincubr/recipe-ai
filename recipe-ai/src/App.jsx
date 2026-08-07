@@ -10,6 +10,8 @@ import Nutrition from './pages/Nutrition'
 import RecipeDetails from './pages/RecipeDetails'
 import CreateRecipe from './pages/CreateRecipe'
 import ScanMeal from './pages/ScanMeal'
+import Blog from './pages/Blog'
+import BlogPost from './pages/BlogPost'
 
 /**
  * Root of the RecipeAI front-end.
@@ -30,6 +32,8 @@ export default function App() {
           <Route path="/meal-planner" element={<MealPlanner />} />
           <Route path="/shopping-list" element={<ShoppingList />} />
           <Route path="/nutrition" element={<Nutrition />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
           <Route
             path="/how-it-works"
             element={<Placeholder title="How It Works" />}

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import FeatureBadge from './FeatureBadge'
@@ -30,6 +31,8 @@ const reveal = {
  * Fold 4 alone; all content sits above it at z-10.
  */
 export default function CulinaryChannel() {
+  const videoGridRef = useRef(null)
+
   return (
     <motion.section
       variants={reveal}
@@ -74,7 +77,7 @@ export default function CulinaryChannel() {
                 type="button"
                 whileHover={{ scale: 1.03, x: 2 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => console.log('View all videos')}
+                onClick={() => videoGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                 className="flex items-center gap-2 rounded-full bg-cream-100 px-5 py-2.5 text-[15px] font-normal text-ink shadow-card transition-colors hover:bg-cream-200"
               >
                 View all videos
@@ -106,7 +109,7 @@ export default function CulinaryChannel() {
         </div>
 
         {/* Video grid */}
-        <div className="pt-2">
+        <div ref={videoGridRef} className="scroll-mt-24 pt-2">
           <VideoGrid />
         </div>
 

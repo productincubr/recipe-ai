@@ -20,9 +20,9 @@ const list = {
 const CARDS = [
   {
     id: "scan-meal",
-    title: "Scan Meal",
-    description: "Get an AI curated healthier version in seconds",
-    cta: "Scan Meal",
+    title: "Scan a Recipe",
+    description: "Snap a photo and get an AI curated healthier version in seconds",
+    cta: "Scan Recipe",
     icon: Camera,
     bg: "#FB8D02",
     image:
@@ -30,26 +30,28 @@ const CARDS = [
     to: "/scan",
   },
   {
-    id: "upload",
-    title: "Upload Your Ingredients",
-    description: "Combine for a great healthier output",
-    cta: "Upload Ingredients",
+    id: "ingredients",
+    title: "Create From Ingredients",
+    description: "Tell us what's in your kitchen, we'll build a healthy recipe",
+    cta: "Create Recipe From Ingredients",
     icon: Upload,
     bg: "#0A8B86",
     image:
       "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&auto=format&fit=crop",
-    to: "/scan",
+    to: "/create",
+    mode: "ingredients",
   },
   {
-    id: "discover",
-    title: "Discover Superfoods",
-    description: "Combine for a great healthier output",
-    cta: "Explore Now",
+    id: "superfoods",
+    title: "Cook With Superfoods",
+    description: "Build everyday meals around chia, quinoa, millets & more",
+    cta: "Cook With Superfoods",
     icon: Compass,
     bg: "#FB8D02",
     image:
       "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&auto=format&fit=crop",
-    to: "/nutrition",
+    to: "/create",
+    mode: "superfoods",
   },
 ];
 
@@ -67,7 +69,7 @@ export default function FeatureCards() {
         <FeatureCard
           key={card.id}
           {...card}
-          onAction={() => navigate(card.to)}
+          onAction={() => navigate(card.to, card.mode ? { state: { mode: card.mode } } : undefined)}
         />
       ))}
     </motion.div>

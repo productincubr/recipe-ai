@@ -34,6 +34,11 @@ import {
   Citrus,
   Candy,
   Grid2x2,
+  Carrot,
+  Globe,
+  Coffee,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 // Neutral icon treatment shared by every allergy card — the reference design
@@ -41,22 +46,35 @@ import {
 // only breaks the pattern for "None of these".
 const NEUTRAL = "bg-cream-200 text-ink-soft";
 
-// Config-driven steps power a single generic renderer in CreateRecipe.jsx.
-// "dish" is the only step with custom UI (free-text input); the rest are
-// icon-card selection grids that share the same layout.
-export const WIZARD_STEPS = [
-  { key: "dish", number: 1, label: "Dish", type: "dish" },
-  {
+// Config-driven step definitions power a single generic renderer in
+// CreateRecipe.jsx. Each key below is a reusable step; which steps appear,
+// and in what order, is decided per entry-point "mode" by MODE_STEPS further
+// down. "dish"/"ingredients" are the only steps with custom UI (free-text
+// input); the rest are icon-card selection grids that share the same layout.
+const STEP_DEFS = {
+  dish: {
+    key: "dish",
+    label: "Dish",
+    type: "dish",
+  },
+
+  ingredients: {
+    key: "ingredients",
+    label: "Ingredients",
+    type: "ingredients",
+    title: "What ingredients do you have?",
+    subtitle: "Add everything you'd like to use — we'll build a healthy recipe around it.",
+    illustrationIcon: Carrot,
+  },
+
+  goals: {
     key: "goals",
-    number: 2,
     label: "Health Goal",
     type: "options",
     selectionMode: "multi",
     max: 3,
-    eyebrow: "Step 2 of 5",
     title: "What's your health goal today?",
     subtitle: "Choose one or more. This helps us personalize your recipe better.",
-    nextLabel: "Allergies",
     moreLabel: "More goals",
     footerLeft: "more",
     illustrationIcon: Salad,
@@ -81,16 +99,14 @@ export const WIZARD_STEPS = [
       { value: "Better Digestion", label: "Better Digestion", sub: "Easy on your stomach", icon: Activity, color: "bg-emerald-100 text-emerald-600" },
     ],
   },
-  {
+
+  allergies: {
     key: "allergies",
-    number: 3,
     label: "Allergies",
     type: "options",
     selectionMode: "multi",
-    eyebrow: "Step 3 of 5",
     title: "Any allergies or ingredients you want us to avoid?",
     subtitle: "Select all that apply. This helps us keep your recipes safe & suitable.",
-    nextLabel: "Cooking Style",
     footerLeft: "info",
     infoLabel: "Why we ask this?",
     infoText:
@@ -121,16 +137,14 @@ export const WIZARD_STEPS = [
       { value: "None", label: "None of these", sub: "No known allergies", icon: Leaf, color: "bg-olive-soft text-olive-dark", accent: "olive" },
     ],
   },
-  {
+
+  cookingStyle: {
     key: "cookingStyle",
-    number: 4,
     label: "Cooking Style",
     type: "options",
     selectionMode: "single",
-    eyebrow: "Step 4 of 5",
     title: "What's your cooking style?",
     subtitle: "Pick the one that fits how you like to eat.",
-    nextLabel: "Taste & Spice",
     illustrationIcon: ChefHat,
     options: [
       { value: "Vegetarian", label: "Vegetarian", sub: "No meat or fish", icon: Salad, color: "bg-emerald-100 text-emerald-600" },
@@ -145,16 +159,72 @@ export const WIZARD_STEPS = [
       { value: "No Preference", label: "No Preference", sub: "I'll eat anything healthy", icon: ChefHat, color: "bg-gray-100 text-gray-500" },
     ],
   },
-  {
+
+  cuisine: {
+    key: "cuisine",
+    label: "Cuisine",
+    type: "options",
+    selectionMode: "single",
+    title: "Which cuisine are you in the mood for?",
+    subtitle: "Pick one to guide the flavors, spices and cooking technique.",
+    illustrationIcon: Globe,
+    options: [
+      { value: "Indian", label: "Indian", sub: "Spiced & comforting", icon: Globe, color: "bg-orange-100 text-orange-500" },
+      { value: "Italian", label: "Italian", sub: "Herby & rustic", icon: Globe, color: "bg-emerald-100 text-emerald-600" },
+      { value: "Mexican", label: "Mexican", sub: "Bold & zesty", icon: Globe, color: "bg-rose-100 text-rose-500" },
+      { value: "Chinese", label: "Chinese", sub: "Wok-fired & savory", icon: Globe, color: "bg-red-100 text-red-500" },
+      { value: "Thai", label: "Thai", sub: "Sweet, sour & spicy", icon: Globe, color: "bg-lime-100 text-lime-600" },
+      { value: "Mediterranean", label: "Mediterranean", sub: "Fresh & olive-oil forward", icon: Globe, color: "bg-sky-100 text-sky-500" },
+      { value: "Japanese", label: "Japanese", sub: "Light & umami rich", icon: Globe, color: "bg-purple-100 text-purple-500" },
+      { value: "American", label: "American", sub: "Classic comfort food", icon: Globe, color: "bg-amber-100 text-amber-600" },
+    ],
+  },
+
+  mealType: {
+    key: "mealType",
+    label: "Meal Type",
+    type: "options",
+    selectionMode: "single",
+    title: "What meal is this for?",
+    subtitle: "Choose when you'll be enjoying this dish.",
+    illustrationIcon: Sun,
+    options: [
+      { value: "Breakfast", label: "Breakfast", sub: "Start the day right", icon: Coffee, color: "bg-amber-100 text-amber-600" },
+      { value: "Lunch", label: "Lunch", sub: "Midday fuel-up", icon: Sun, color: "bg-orange-100 text-orange-500" },
+      { value: "Dinner", label: "Dinner", sub: "Wind down with a hearty meal", icon: Moon, color: "bg-sky-100 text-sky-500" },
+      { value: "Snack", label: "Snack", sub: "A light bite between meals", icon: Popcorn, color: "bg-lime-100 text-lime-600" },
+      { value: "Dessert", label: "Dessert", sub: "A sweet finish", icon: Candy, color: "bg-fuchsia-100 text-fuchsia-500" },
+    ],
+  },
+
+  superfoods: {
+    key: "superfoods",
+    label: "Superfoods",
+    type: "options",
+    selectionMode: "multi",
+    title: "Which superfoods would you like to include?",
+    subtitle: "Choose one or more — we'll build a recipe that naturally includes them.",
+    illustrationIcon: Sprout,
+    options: [
+      { value: "Chia Seeds", label: "Chia Seeds", sub: "Omega-3 & fibre", icon: Droplet, color: "bg-sky-100 text-sky-500" },
+      { value: "Flax Seeds", label: "Flax Seeds", sub: "Heart-healthy fats", icon: CircleDot, color: "bg-amber-100 text-amber-600" },
+      { value: "Quinoa", label: "Quinoa", sub: "Complete plant protein", icon: Wheat, color: "bg-orange-100 text-orange-500" },
+      { value: "Amaranth", label: "Amaranth", sub: "Ancient protein-rich grain", icon: Sprout, color: "bg-lime-100 text-lime-600" },
+      { value: "Moringa", label: "Moringa", sub: "Vitamin & mineral dense", icon: Leaf, color: "bg-emerald-100 text-emerald-600" },
+      { value: "Pumpkin Seeds", label: "Pumpkin Seeds", sub: "Magnesium & zinc", icon: Nut, color: "bg-orange-100 text-orange-500" },
+      { value: "Hemp Seeds", label: "Hemp Seeds", sub: "Plant protein & omegas", icon: Salad, color: "bg-teal-100 text-teal-600" },
+      { value: "Oats", label: "Oats", sub: "Soluble fibre for the gut", icon: Coffee, color: "bg-amber-100 text-amber-600" },
+      { value: "Millets", label: "Millets", sub: "Gluten-free ancient grains", icon: Sun, color: "bg-yellow-100 text-yellow-600" },
+    ],
+  },
+
+  spiceLevel: {
     key: "spiceLevel",
-    number: 5,
     label: "Taste & Spice",
     type: "options",
     selectionMode: "single",
-    eyebrow: "Step 5 of 5",
     title: "How spicy do you like it?",
     subtitle: "Choose your preferred taste & spice level.",
-    nextLabel: "Generate Recipe",
     illustrationIcon: Flame,
     options: [
       { value: "Mild", label: "Mild", sub: "Little to no heat", icon: Snowflake, color: "bg-sky-100 text-sky-500" },
@@ -165,6 +235,18 @@ export const WIZARD_STEPS = [
       { value: "Sweet & Savory", label: "Sweet & Savory", sub: "Balanced sweetness", icon: Candy, color: "bg-fuchsia-100 text-fuchsia-500" },
     ],
   },
-];
+};
+
+// Which steps appear, and in what order, for each homepage entry point.
+const MODE_STEPS = {
+  dish: ["dish", "goals", "allergies", "cookingStyle", "spiceLevel"],
+  ingredients: ["ingredients", "cuisine", "goals", "mealType", "spiceLevel", "allergies"],
+  superfoods: ["superfoods", "cuisine", "mealType", "goals", "spiceLevel", "allergies"],
+};
+
+export function getWizardSteps(mode = "dish") {
+  const order = MODE_STEPS[mode] || MODE_STEPS.dish;
+  return order.map((key) => STEP_DEFS[key]);
+}
 
 export const MoreOptionsIcon = Grid2x2;

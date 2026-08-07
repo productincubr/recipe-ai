@@ -73,6 +73,8 @@ export const channelVideos = [
     tags: ['Vegetarian', 'Quick Meal'],
     duration: '08:24',
     youtubeId: 'OrKuktJqGJo',
+    chef: 'Chef Maya Rao',
+    difficulty: 'Easy',
   },
   {
     id: 'tofu-stir-fry-bowl',
@@ -83,6 +85,8 @@ export const channelVideos = [
     tags: ['High Protein', 'Low Calorie'],
     duration: '09:15',
     youtubeId: 'U67i1TAIr2U',
+    chef: 'Chef Arjun Mehta',
+    difficulty: 'Easy',
   },
   {
     id: 'quinoa-veggie-bowl',
@@ -93,6 +97,8 @@ export const channelVideos = [
     tags: ['High Fiber', 'Vegan'],
     duration: '07:48',
     youtubeId: 'mPaJFxzwi-U',
+    chef: 'Chef Priya Nair',
+    difficulty: 'Easy',
   },
   {
     id: 'berry-smoothie-bowl',
@@ -103,6 +109,8 @@ export const channelVideos = [
     tags: ['Antioxidant Rich', 'No Sugar Added'],
     duration: '08:03',
     youtubeId: 's9f08Qsz-KE',
+    chef: 'Chef Maya Rao',
+    difficulty: 'Easy',
   },
   {
     id: 'stuffed-bell-peppers',
@@ -113,6 +121,8 @@ export const channelVideos = [
     tags: ['Vegetarian', 'High Protein'],
     duration: '10:12',
     youtubeId: 'Go_v-2MLxCw',
+    chef: 'Chef Arjun Mehta',
+    difficulty: 'Medium',
   },
   {
     id: 'chocolate-avocado-mousse',
@@ -123,6 +133,8 @@ export const channelVideos = [
     tags: ['Healthy Dessert', 'Gluten Free'],
     duration: '05:47',
     youtubeId: 'wuZffe60q4M',
+    chef: 'Chef Priya Nair',
+    difficulty: 'Easy',
   },
 ]
 

@@ -81,6 +81,14 @@ export default function VideoCard({ video, onOpen }) {
         </motion.span>
       </div>
 
+      {/* Chef + difficulty */}
+      {video.chef && (
+        <p className="absolute left-5 top-16 z-10 text-[13px] font-medium text-cream-100/90 drop-shadow-[0_1px_4px_rgba(30,25,10,0.5)]">
+          {video.chef}
+          {video.difficulty && <span className="text-cream-100/70"> · {video.difficulty}</span>}
+        </p>
+      )}
+
       {/* Tags */}
       <div className="absolute bottom-4 left-5 z-10 flex flex-wrap gap-2">
         {video.tags.map((tag) => (

@@ -62,7 +62,7 @@ TRADITIONAL STRUCTURE:
 Cuisine: ${recipeStructure.cuisine}
 Primary Ingredients: ${recipeStructure.primaryIngredients.join(', ')}
 Cooking Method: ${recipeStructure.cookingMethod}
-
+${healthProfile.cuisine ? `User-requested cuisine: ${healthProfile.cuisine}\n` : ''}${healthProfile.mealType ? `Meal type: ${healthProfile.mealType}\n` : ''}${Array.isArray(healthProfile.ingredients) && healthProfile.ingredients.length > 0 ? `Available ingredients to prioritize: ${healthProfile.ingredients.join(', ')}\n` : ''}${Array.isArray(healthProfile.superfoods) && healthProfile.superfoods.length > 0 ? `Superfoods to include: ${healthProfile.superfoods.join(', ')}\n` : ''}
 USER HEALTH PROFILE:
 Goals: ${(healthProfile.goals || []).join(', ')}
 Medical Conditions: ${(healthProfile.medicalConditions || []).join(', ')}

@@ -1,46 +1,7 @@
 import { motion } from "framer-motion";
-import {
-  Zap,
-  Clock,
- Sparkles,
-  Heart,
-  Wand2,
-} from "lucide-react";
+import { Lightbulb } from "lucide-react";
 
 import SearchBar from "../SearchBar/SearchBar";
-
-const filters = [
-  {
-    id: 1,
-    text: "High protein dinner",
-    icon: Zap,
-    color: "text-orange-500",
-  },
-  {
-    id: 2,
-    text: "Under 30 mins",
-    icon: Clock,
-    color: "text-blue-500",
-  },
-  {
-    id: 3,
-    text: "Veg meals",
-    icon: Sparkles,
-    color: "text-green-500",
-  },
-  {
-    id: 4,
-    text: "Low calorie",
-    icon: Heart,
-    color: "text-red-400",
-  },
-  {
-    id: 5,
-    text: "Surprise me",
-    icon: Wand2,
-    color: "text-yellow-500",
-  },
-];
 
 function greetingForHour(hour) {
   if (hour < 5) return "Good night";
@@ -66,41 +27,36 @@ export default function Hero({ userName = "Ananya" }) {
 
         {/* Greeting */}
 
-        <p className="flex items-center gap-2 text-[18px] text-[#F28C28] font-medium">
+        <p className="flex items-center gap-2 text-[15px] sm:text-[18px] text-terracotta font-medium">
           🌿 {greeting}, {userName}! 👋
         </p>
 
         {/* Heading */}
 
-        <h1 className="mt-3 font-serif text-[55px] leading-[68px] font-bold text-[#1E2432] max-w-full">
+        <h1 className="mt-3 font-serif text-[32px] leading-[1.1] sm:text-[42px] sm:leading-[1.1] md:text-[55px] md:leading-[68px] font-bold text-ink max-w-full">
           What would you like to cook today?
         </h1>
 
         {/* Subtitle */}
 
-        <p className="mt-4 mb-8 text-[20px] text-gray-500 max-w-[700px]">
+        <p className="mt-4 mb-8 text-[16px] sm:text-[20px] text-ink-soft max-w-[700px]">
           Get personalized recipe ideas in seconds with Recipe AI.
         </p>
 
         <SearchBar />
 
-        {/* Chips */}
+        {/* Tip */}
 
-        <div className="mt-10 flex flex-wrap gap-4">
-
-          {filters.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <button
-                key={item.id}
-                className="flex items-center gap-2 rounded-full bg-[#F2F2F2] px-5 py-3 text-[13px] font-medium hover:bg-[#e8e8e8] transition"
-              >
-                <Icon className={`w-4 h-4 ${item.color}`} />
-                {item.text}
-              </button>
-            );
-          })}
+        <div className="mt-6 flex items-start gap-3 rounded-2xl bg-cream-100 border border-cream-300 px-4 py-3.5 sm:px-5 sm:py-4">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-olive-soft text-olive-dark">
+            <Lightbulb size={15} />
+          </span>
+          <p className="text-[13px] sm:text-[14px] leading-relaxed text-ink-soft">
+            <strong className="text-ink font-semibold">Tip: </strong>
+            You'd be surprised how a few simple ingredient swaps can transform your
+            favourite recipes into healthier, protein-rich, high-fibre meals
+            without compromising on taste.
+          </p>
         </div>
 
       </motion.div>

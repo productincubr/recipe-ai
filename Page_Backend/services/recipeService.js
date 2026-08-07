@@ -105,31 +105,43 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals, preferenc
     const imageUrl = await uploadImageToStorage(recipeData.image_url, recipeData.dish_name);
     
     // 2. Insert into public.recipes
-    const { data: recipe, error: recipeError } = await supabase
+    const baseRecipeRow = {
+      dish_name: recipeData.dish_name,
+      category: recipeData.category || 'Comfort Food',
+      description: recipeData.description,
+      calories: recipeData.calories,
+      protein: recipeData.protein,
+      fiber: recipeData.fiber,
+      fats: recipeData.fats,
+      sodium: recipeData.sodium,
+      cooking_time: recipeData.cooking_time,
+      servings: recipeData.servings || 2,
+      difficulty: recipeData.difficulty || 'Easy',
+      cuisine: recipeData.cuisine || 'Classic',
+      diet_type: recipeData.diet_type || 'Vegetarian',
+      meal_type: recipeData.meal_type || 'Lunch, Dinner',
+      best_for: recipeData.best_for || 'Healthy eating',
+      ingredients: recipeData.ingredients,
+      steps: recipeData.steps,
+      healthier_explanation: recipeData.healthier_explanation,
+      image_url: imageUrl
+    };
+
+    let { data: recipe, error: recipeError } = await supabase
       .from('recipes')
-      .insert({
-        dish_name: recipeData.dish_name,
-        category: recipeData.category || 'Comfort Food',
-        description: recipeData.description,
-        calories: recipeData.calories,
-        protein: recipeData.protein,
-        fiber: recipeData.fiber,
-        fats: recipeData.fats,
-        sodium: recipeData.sodium,
-        cooking_time: recipeData.cooking_time,
-        servings: recipeData.servings || 2,
-        difficulty: recipeData.difficulty || 'Easy',
-        cuisine: recipeData.cuisine || 'Classic',
-        diet_type: recipeData.diet_type || 'Vegetarian',
-        meal_type: recipeData.meal_type || 'Lunch, Dinner',
-        best_for: recipeData.best_for || 'Healthy eating',
-        ingredients: recipeData.ingredients,
-        steps: recipeData.steps,
-        healthier_explanation: recipeData.healthier_explanation,
-        image_url: imageUrl
-      })
+      .insert({ ...baseRecipeRow, optimization_plan: recipeData.optimization_plan || null })
       .select()
       .single();
+
+    if (recipeError && (recipeError.code === '42703' || recipeError.message.includes('column'))) {
+      // Older DB not yet migrated with an optimization_plan column — retry without it.
+      logger.warn('optimization_plan column not found in database. Retrying insert without it.');
+      ({ data: recipe, error: recipeError } = await supabase
+        .from('recipes')
+        .insert(baseRecipeRow)
+        .select()
+        .single());
+    }
 
     if (recipeError) throw recipeError;
 

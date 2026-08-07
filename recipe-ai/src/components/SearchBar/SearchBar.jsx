@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -9,16 +9,15 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const MOBILE_SUGGESTIONS = [
-  "I have paneer and spinach",
-  "High protein dinner",
-  "Quick lunch ideas",
-];
+const PLACEHOLDER = "Type a recipe you’d like to make healthier…";
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
 
   const navigate = useNavigate();
+  const cameraInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -26,6 +25,15 @@ export default function SearchBar() {
     if (!query.trim()) return;
 
     navigate("/create", { state: { dish: query.trim() } });
+  };
+
+  const handleImagePicked = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) return;
+
+    navigate("/scan", { state: { file } });
   };
 
   return (
@@ -37,153 +45,208 @@ export default function SearchBar() {
     >
       {/* Mobile Composer Card */}
 
-      <div
+      <motion.div
+        animate={
+          isFocused
+            ? {
+                borderColor: "#6f7d33",
+                boxShadow: "0 10px 32px rgba(230, 169, 58, 0.28)",
+                scale: 1,
+              }
+            : {
+                borderColor: ["#f1dfb2", "#e6a93a", "#f1dfb2"],
+                boxShadow: [
+                  "0 6px 18px rgba(230, 169, 58, 0.14)",
+                  "0 10px 30px rgba(230, 169, 58, 0.24)",
+                  "0 6px 18px rgba(230, 169, 58, 0.14)",
+                ],
+                scale: [1, 1.012, 1],
+              }
+        }
+        transition={
+          isFocused
+            ? { duration: 0.3, ease: "easeOut" }
+            : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+        }
         className="
         md:hidden
-        rounded-3xl
-        bg-[#F5F4F2]
-        border
-        border-[#ECE9E4]
-        p-4
-        shadow-sm
-
-        transition-all
-        duration-300
-
-        focus-within:border-[#D8D6D3]
-        focus-within:ring-2
-        focus-within:ring-[#E6E3DE]
+        rounded-[28px]
+        bg-cream
+        border-2
+        p-5
+        shadow-card
         "
       >
-        <div className="flex items-start gap-2.5">
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FDECC8]">
-            <Sparkles className="h-4 w-4 text-[#F5B400]" strokeWidth={2.2} />
-          </span>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-[#1E2432] leading-snug">
-              What would you like to cook today?
-            </p>
-
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Describe your ingredients, mood or goal..."
-              className="
-              mt-1
-              w-full
-              bg-transparent
-              border-none
-              outline-none
-              ring-0
-              text-[13px]
-              text-[#4A4A4A]
-              placeholder:text-[#9A968F]
-              focus:outline-none
-              focus:ring-0
-              focus:border-none
-              focus-visible:outline-none
-              focus-visible:ring-0
-              appearance-none
-              overflow-hidden
-              text-ellipsis
-              whitespace-nowrap
-              "
+        <div className="flex items-center gap-3">
+          <motion.span
+            animate={{
+              backgroundColor: isFocused ? "#6f7d33" : "#f0e6cd",
+              rotate: isFocused ? 12 : 0,
+            }}
+            transition={{ duration: 0.3 }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          >
+            <Sparkles
+              className={`h-4.5 w-4.5 transition-colors duration-300 ${
+                isFocused ? "text-white" : "text-amber"
+              }`}
+              strokeWidth={2.2}
             />
-          </div>
-        </div>
+          </motion.span>
 
-        {/* Suggestion chips */}
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {MOBILE_SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setQuery(s)}
-              className="rounded-full border border-[#ECE9E4] bg-white px-3 py-1.5 text-[12px] font-medium text-[#4A4A4A] transition hover:bg-[#EFEDE9]"
-            >
-              {s}
-            </button>
-          ))}
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={PLACEHOLDER}
+            className="
+            min-w-0
+            flex-1
+            bg-transparent
+            border-none
+            outline-none
+            ring-0
+            text-[16px]
+            font-semibold
+            text-ink
+            placeholder:font-normal
+            placeholder:text-ink-muted
+            focus:outline-none
+            focus:ring-0
+            focus:border-none
+            focus-visible:outline-none
+            focus-visible:ring-0
+            appearance-none
+            "
+          />
         </div>
 
         {/* Toolbar */}
 
-        <div className="mt-4 flex items-center justify-between border-t border-[#ECE9E4] pt-3">
-          <div className="flex items-center gap-4 text-[#8B8B8B]">
-            <button type="button" className="hover:text-black transition">
-              <Mic size={19} />
-            </button>
-            <button type="button" className="hover:text-black transition">
-              <Camera size={19} />
-            </button>
-            <button type="button" className="hover:text-black transition">
-              <Paperclip size={19} />
-            </button>
+        <div className="mt-4 flex items-center justify-between border-t border-cream-300 pt-3.5">
+          <div className="flex items-center gap-1 text-ink-muted">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
+            >
+              <Mic size={18} />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
+            >
+              <Camera size={18} />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
+            >
+              <Paperclip size={18} />
+            </motion.button>
           </div>
 
           <motion.button
-            whileTap={{ scale: .95 }}
+            whileTap={{ scale: 0.92 }}
+            animate={{
+              backgroundColor: query.trim() ? "#6f7d33" : "#3a441c",
+            }}
+            transition={{ duration: 0.25 }}
             type="submit"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#343434] text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white"
           >
-            <ArrowRight size={17} />
+            <ArrowRight size={18} />
           </motion.button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Desktop Pill */}
 
-      <div
+      <motion.div
+        animate={
+          isFocused
+            ? {
+                borderColor: "#6f7d33",
+                boxShadow: "0 12px 34px rgba(230, 169, 58, 0.26)",
+                scale: 1,
+              }
+            : {
+                borderColor: ["#f1dfb2", "#e6a93a", "#f1dfb2"],
+                boxShadow: [
+                  "0 6px 20px rgba(230, 169, 58, 0.12)",
+                  "0 10px 30px rgba(230, 169, 58, 0.2)",
+                  "0 6px 20px rgba(230, 169, 58, 0.12)",
+                ],
+                scale: [1, 1.008, 1],
+              }
+        }
+        transition={
+          isFocused
+            ? { duration: 0.3, ease: "easeOut" }
+            : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+        }
         className="
         hidden
         md:flex
         items-center
         gap-4
-        h-[68px]
+        h-[72px]
         rounded-full
-        bg-[#F5F4F2]
-        px-6
-        shadow-sm
+        bg-cream
+        px-7
 
-        border
-        border-transparent
-
-        transition-all
-        duration-300
-
-        focus-within:border-[#D8D6D3]
-        focus-within:ring-2
-        focus-within:ring-[#E6E3DE]
+        border-2
+        shadow-card
         "
       >
         {/* Left Icon */}
 
-        <Sparkles
-          className="h-5 w-5 text-[#F5B400] shrink-0"
-          strokeWidth={2.2}
-        />
+        <motion.span
+          animate={{
+            backgroundColor: isFocused ? "#6f7d33" : "#f0e6cd",
+            rotate: isFocused ? 12 : 0,
+          }}
+          transition={{ duration: 0.3 }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+        >
+          <Sparkles
+            className={`h-5 w-5 transition-colors duration-300 ${
+              isFocused ? "text-white" : "text-amber"
+            }`}
+            strokeWidth={2.2}
+          />
+        </motion.span>
 
         {/* Input */}
 
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="let’s make a healthier version of your dish"
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder={PLACEHOLDER}
           className="
           flex-1
           bg-transparent
           border-none
           outline-none
           ring-0
+          text-[17px]
+          font-semibold
+          text-ink
           focus:outline-none
           focus:ring-0
           focus:border-none
           focus-visible:outline-none
           focus-visible:ring-0
           appearance-none
-          placeholder:text-[#7b7b7b]
+          placeholder:font-normal
+          placeholder:text-ink-muted
         "
         />
 
@@ -191,7 +254,8 @@ export default function SearchBar() {
 
         <button
           type="button"
-          className="text-[#8B8B8B] hover:text-black transition"
+          onClick={() => fileInputRef.current?.click()}
+          className="text-ink-muted hover:text-ink transition"
         >
           <Camera size={21} />
         </button>
@@ -200,7 +264,7 @@ export default function SearchBar() {
 
         <button
           type="button"
-          className="text-[#8B8B8B] hover:text-black transition"
+          className="text-ink-muted hover:text-ink transition"
         >
           <Mic size={21} />
         </button>
@@ -215,7 +279,7 @@ export default function SearchBar() {
           h-11
           w-11
           rounded-full
-          bg-[#343434]
+          bg-olive-dark
           text-white
           flex
           items-center
@@ -224,7 +288,25 @@ export default function SearchBar() {
         >
           <ArrowRight size={20} />
         </motion.button>
-      </div>
+      </motion.div>
+
+      {/* Hidden file inputs powering the camera / attach icons */}
+
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleImagePicked}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImagePicked}
+      />
     </motion.form>
   );
 }

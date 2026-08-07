@@ -29,53 +29,57 @@ export default function RecipeCard({
   viewedLabel = "Viewed",
   timeAgo = "2 days ago",
   description,
-  tags = [],
   onOpen,
   onSave,
 }) {
   return (
     <motion.article
       variants={cardVariant}
-      whileHover={{
-        y: -8,
-      }}
+      initial="hidden"
+      animate="show"
+      whileHover={{ y: -8 }}
       transition={{
         type: "spring",
         stiffness: 300,
         damping: 22,
       }}
       className="
+      group
+      flex
+      flex-col
       snap-start
       shrink-0
-      w-[185px]
-      rounded-[24px]
+      w-[258px]
+      rounded-[28px]
       border
-      border-[#61B8B1]
-      bg-white
-      p-3
+      border-cream-300
+      bg-cream
+      p-4
       shadow-sm
-      hover:shadow-xl
-      transition-all
+      transition-[box-shadow,border-color]
+      duration-300
+      hover:border-olive/40
+      hover:shadow-lift
       "
     >
       {/* ---------- Top ---------- */}
 
       <div className="flex items-start justify-between">
 
-        <div className="flex items-start gap-1">
+        <div className="flex items-start gap-1.5">
 
           <Eye
-            size={15}
-            className="mt-[1px] text-gray-700"
+            size={14}
+            className="mt-[2px] text-ink-muted"
           />
 
           <div>
 
-            <p className="text-[10px] font-medium text-gray-700">
+            <p className="text-[11px] font-semibold text-ink-soft">
               {viewedLabel}
             </p>
 
-            <p className="text-[9px] text-gray-400">
+            <p className="text-[10px] text-ink-muted">
               {timeAgo}
             </p>
 
@@ -83,12 +87,13 @@ export default function RecipeCard({
 
         </div>
 
-        <button
+        <motion.button
+          whileTap={{ scale: 0.85 }}
           onClick={onSave}
-          className="text-gray-700 hover:text-black"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-olive-soft hover:text-olive-dark"
         >
-          <Bookmark size={16} />
-        </button>
+          <Bookmark size={15} />
+        </motion.button>
 
       </div>
 
@@ -99,10 +104,11 @@ export default function RecipeCard({
         className="
         mt-3
         block
-        h-[178px]
+        h-[168px]
         w-full
+        shrink-0
         overflow-hidden
-        rounded-[18px]
+        rounded-[20px]
         "
       >
         <img
@@ -112,63 +118,74 @@ export default function RecipeCard({
           h-full
           w-full
           object-cover
-          transition
+          transition-transform
           duration-500
-          hover:scale-110
+          ease-out
+          group-hover:scale-110
           "
         />
       </button>
 
-      {/* ---------- Title ---------- */}
+      {/* ---------- Title + description (grows to push tags to the bottom) ---------- */}
 
-      <div className="mt-4">
+      <div className="flex flex-1 flex-col">
 
-        <h3
-          className="
-          font-serif
-          text-[18px]
-          font-bold
-          leading-5
-          text-[#252B3B]
-          "
-        >
-          {title}
-        </h3>
+        <div className="mt-4">
 
-        <p
-          className="
-          text-[14px]
-          italic
-          text-gray-500
-          "
-        >
-          {subtitle}
-        </p>
+          <h3
+            className="
+            font-serif
+            text-[19px]
+            font-bold
+            leading-[1.15]
+            text-ink
+            "
+          >
+            {title}
+          </h3>
 
-      </div>
+          {subtitle && (
+            <p
+              className="
+              mt-0.5
+              text-[13px]
+              italic
+              text-ink-muted
+              "
+            >
+              {subtitle}
+            </p>
+          )}
 
-      {/* ---------- Divider ---------- */}
+        </div>
 
-      <div className="my-3 h-px bg-[#ECECEC]" />
+        {/* ---------- Divider ---------- */}
 
-      {/* ---------- Description ---------- */}
+        <div className="my-3.5 h-px bg-cream-300" />
 
-      <div className="flex gap-2">
+        {/* ---------- Description ---------- */}
 
-        <ArrowRight
-          size={12}
-          className="mt-1 text-gray-500"
-        />
+        {description && (
+          <div className="flex gap-2">
 
-        <p
-          className="
-          text-[10px]
-          leading-4
-          text-gray-500
-          "
-        >
-          {description}
-        </p>
+            <ArrowRight
+              size={12}
+              className="mt-0.75 shrink-0 text-olive"
+            />
+
+            <p
+              className="
+              line-clamp-3
+              text-[12px]
+              leading-[1.4]
+              text-ink-soft
+              "
+            >
+              {description}
+            </p>
+
+          </div>
+        )}
 
       </div>
 
@@ -177,19 +194,19 @@ export default function RecipeCard({
       <div className="mt-4 grid grid-cols-3 gap-2">
 
         <Tag
-          icon={<Dumbbell size={12} />}
+          icon={<Dumbbell size={13} />}
           title="High"
           sub="Protein"
         />
 
         <Tag
-          icon={<Leaf size={12} />}
+          icon={<Leaf size={13} />}
           title="Low"
           sub="Carb"
         />
 
         <Tag
-          icon={<Salad size={12} />}
+          icon={<Salad size={13} />}
           title="Diet"
           sub="Friendly"
         />
@@ -208,25 +225,29 @@ function Tag({
   return (
     <div
       className="
-      rounded-xl
+      rounded-2xl
       border
-      border-[#EAEAEA]
-      py-2
+      border-cream-300
+      bg-cream-100
+      py-2.5
       flex
       flex-col
       items-center
       justify-center
+      transition-colors
+      duration-300
+      group-hover:border-olive-soft
       "
     >
-      <div className="text-[#1A8B84]">
+      <div className="text-olive-dark">
         {icon}
       </div>
 
-      <p className="mt-1 text-[9px] font-semibold">
+      <p className="mt-1 text-[10px] font-semibold text-ink">
         {title}
       </p>
 
-      <p className="text-[8px] text-gray-500">
+      <p className="text-[9px] text-ink-muted">
         {sub}
       </p>
     </div>

@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   BarChart3,
   Camera,
+  BookOpen,
 } from 'lucide-react'
 
 /** Primary sidebar navigation items. */
@@ -21,6 +22,7 @@ export const sidebarLinks = [
   { label: 'Meal planner', icon: CalendarDays, to: '/meal-planner', badge: null },
   { label: 'Shopping list', icon: ShoppingBag, to: '/shopping-list', badge: null },
   { label: 'Nutrition', icon: BarChart3, to: '/nutrition', badge: null },
+  { label: 'Blog', icon: BookOpen, to: '/blog', badge: null },
 ]
 
 /** Recently generated recipes shown near the bottom of the sidebar. */
@@ -66,6 +68,7 @@ export const currentUser = {
 /** Top navbar links. */
 export const navLinks = [
   { label: 'Explore', to: '/' },
+  { label: 'Blog', to: '/blog' },
   { label: 'How It Works', to: '/how-it-works' },
   { label: 'Pricing', to: '/pricing' },
 ]

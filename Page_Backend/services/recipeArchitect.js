@@ -139,6 +139,7 @@ TRADITIONAL CORE INGREDIENTS (must appear in the final "ingredients" list unless
 ${traditionalIngredients.join(', ')}
 Cuisine: ${recipeStructure.cuisine || 'Generic'}
 ` : ''}
+${inputs.cuisine ? `USER-REQUESTED CUISINE: ${inputs.cuisine} — the dish must reflect this cuisine's flavors and technique, overriding any inferred cuisine above.\n` : ''}${inputs.mealType ? `MEAL TYPE: ${inputs.mealType} — make sure the dish, portioning, and richness suit this meal.\n` : ''}${Array.isArray(inputs.ingredients) && inputs.ingredients.length > 0 ? `AVAILABLE INGREDIENTS TO PRIORITIZE: ${inputs.ingredients.join(', ')} — build the recipe around these where sensible.\n` : ''}${Array.isArray(inputs.superfoods) && inputs.superfoods.length > 0 ? `SUPERFOODS TO INCLUDE: ${inputs.superfoods.join(', ')} — these must appear in the final "ingredients" list.\n` : ''}
 USER HEALTH SPECIFICATIONS:
 Goals: ${(inputs.goals || []).join(', ')}
 Conditions: ${(inputs.medicalConditions || []).join(', ')}

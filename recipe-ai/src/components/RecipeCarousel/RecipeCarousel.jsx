@@ -1,14 +1,47 @@
-import { useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react";
 import RecipeCard from "../RecipeCard/RecipeCard";
+import { getHistory } from "../../services/userFeaturesApi";
 
-import { continueCookingRecipes } from "../../data/continueCooking";
-
-const CARD_WIDTH = 235;
+const CARD_WIDTH = 258;
 const GAP = 22;
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop";
+
+function timeAgo(dateString) {
+  if (!dateString) return "";
+  const diffMs = Date.now() - new Date(dateString).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} week${weeks > 1 ? "s" : ""} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months > 1 ? "s" : ""} ago`;
+}
 
 export default function RecipeCarousel() {
   const carouselRef = useRef(null);
+  const navigate = useNavigate();
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getHistory()
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setRecipes(res.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const scroll = (direction) => {
     carouselRef.current?.scrollBy({
@@ -16,6 +49,23 @@ export default function RecipeCarousel() {
       behavior: "smooth",
     });
   };
+
+  if (loading) {
+    return <div className="h-70 animate-pulse rounded-3xl bg-cream-100" />;
+  }
+
+  if (recipes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-cream-300 bg-cream-100 py-14 text-center">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-olive-soft text-olive-dark">
+          <UtensilsCrossed size={20} />
+        </span>
+        <p className="text-sm text-ink-soft">
+          No recipes yet — try the search bar above to make your first one.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -66,10 +116,15 @@ export default function RecipeCarousel() {
         scrollbar-hide
         "
       >
-        {continueCookingRecipes.map((recipe) => (
+        {recipes.map((recipe) => (
           <RecipeCard
             key={recipe.id}
-            {...recipe}
+            image={recipe.image_url || FALLBACK_IMAGE}
+            title={recipe.dish_name}
+            subtitle={recipe.cuisine || recipe.category}
+            description={recipe.description}
+            timeAgo={timeAgo(recipe.created_at)}
+            onOpen={() => navigate(`/recipe/${recipe.id}`)}
           />
         ))}
       </div>

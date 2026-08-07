@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import RecipeCarousel from "../RecipeCarousel/RecipeCarousel";
 
 const reveal = {
@@ -16,6 +17,8 @@ const reveal = {
 };
 
 export default function ContinueCookingSection() {
+  const navigate = useNavigate();
+
   return (
     <motion.section
       variants={reveal}
@@ -56,6 +59,7 @@ export default function ContinueCookingSection() {
         </div>
 
         <button
+          onClick={() => navigate("/history")}
           className="
           rounded-full
           border
