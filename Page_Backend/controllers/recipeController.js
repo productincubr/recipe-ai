@@ -110,9 +110,22 @@ export const generateRecipeImage = async (req, res) => {
 
   try {
     logger.info(`Generating on-demand image for dish: "${dishName}", recipe ID: ${recipeId}`);
-    
+
+    // 0. Pull the actual recipe content so the image reflects what was really cooked,
+    // instead of guessing from the dish name alone.
+    let details = {};
+    if (recipeId && !recipeId.startsWith('temp-')) {
+      const { supabase } = await import('../config/supabase.js');
+      const { data } = await supabase
+        .from('recipes')
+        .select('description, ingredients, cuisine')
+        .eq('id', recipeId)
+        .single();
+      if (data) details = data;
+    }
+
     // 1. Fetch photorealistic imagery from Stability AI
-    const base64Image = await generateDishImage(dishName);
+    const base64Image = await generateDishImage(dishName, details);
     
     if (!base64Image) {
       return res.status(500).json({ error: 'Failed to generate image from Stability AI.' });

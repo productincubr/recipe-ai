@@ -12,13 +12,17 @@ const httpsAgent = new https.Agent({
 
 /**
  * Generates an image of a dish using Stability AI with SSL verification disabled.
- * 
+ *
  * @param {string} dishName - Name of the dish.
+ * @param {object} [details] - Extra recipe context to ground the image in what was actually cooked.
+ * @param {string} [details.description] - Recipe description.
+ * @param {Array<{name: string}>} [details.ingredients] - Recipe ingredients.
+ * @param {string} [details.cuisine] - Recipe cuisine.
  * @returns {Promise<string|null>} - Base64 Data URL of the generated image or null.
  */
-export const generateDishImage = async (dishName) => {
+export const generateDishImage = async (dishName, details = {}) => {
   const apiKey = process.env.STABILITY_API_KEY;
-  
+
   if (!apiKey) {
     logger.warn('STABILITY_API_KEY is not defined in environment variables. Image generation will be skipped.');
     return null;
@@ -28,13 +32,23 @@ export const generateDishImage = async (dishName) => {
 
   const url = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image';
 
+  const keyIngredients = Array.isArray(details.ingredients)
+    ? details.ingredients.slice(0, 6).map((i) => i.name).filter(Boolean).join(', ')
+    : '';
+
+  const grounding = [
+    details.cuisine ? `${details.cuisine} cuisine` : '',
+    keyIngredients ? `made with ${keyIngredients}` : '',
+    details.description || '',
+  ].filter(Boolean).join('. ');
+
   try {
     const response = await axios.post(
       url,
       {
         text_prompts: [
           {
-            text: `High-end professional food photography of a healthy, delicious version of ${dishName}. Beautifully plated, modern restaurant presentation, clean background, warm natural lighting, macro shot, highly detailed, photorealistic, 8k resolution`,
+            text: `High-end professional food photography of ${dishName}, a healthy dish.${grounding ? ` ${grounding}.` : ''} The plate must accurately show these exact ingredients — no substitutions or invented components. Beautifully plated, modern restaurant presentation, clean background, warm natural lighting, macro shot, highly detailed, photorealistic, 8k resolution`,
             weight: 1.0
           },
           {

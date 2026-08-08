@@ -28,13 +28,17 @@ export const planOptimizations = async (recipeStructure, healthProfile, evidence
     return defaultPlan;
   }
 
+  const isNonVegRequest = healthProfile.dietaryPreferences === 'Non-Vegetarian';
+
   try {
     const systemPrompt = `Role: Clinical recipe optimization planner.
 Task: Design healthy substitutions & cooking method adjustments while preserving the dish's identity.
 Caution: DO NOT write recipes.
 
 CORE RULE: "Primary Ingredients" are what make this dish recognizable as itself (e.g. the bean in a bean dish, the grain in a rice dish, the protein in a meat dish). Do NOT put a primary ingredient in "swaps" to change its fundamental category (e.g. rice -> quinoa, kidney beans -> lima beans, chicken -> tofu) UNLESS the user's allergies, medical conditions, or dietary preference make the original ingredient unsafe or non-compliant. Every "swaps" entry for a primary ingredient must name the specific allergy/condition/diet that required it in "reason" — if none applies, do not swap it. For primary ingredients with no such conflict, improve them via "methodAdjustments" instead (e.g. white rice -> brown rice, less oil/ghee, more fiber, portion control) so the dish stays recognizable and still tastes like what the user asked for.
-
+${isNonVegRequest ? `
+NON-VEGETARIAN RULE: The user has explicitly set Diet Preference to "Non-Vegetarian" — they want a non-vegetarian recipe. If the dish's primary protein is vegetarian (paneer, tofu, lentils, beans, etc.), you MUST add a "swaps" entry replacing that primary protein with a complementary non-vegetarian protein (chicken, fish, egg, or lean meat — pick whichever fits the cuisine) so the final recipe genuinely contains a non-vegetarian ingredient, and set "reason" to "User requested a Non-Vegetarian recipe." If the dish already has a non-vegetarian primary protein, leave it as-is (no swap needed).
+` : ''}
 Output: Strict JSON matching schema. NO prose, NO markdown blocks (\`\`\`json), NO wrapper text.
 
 JSON Schema:
@@ -73,7 +77,7 @@ Dislikes: ${(healthProfile.dislikedIngredients || []).join(', ')}
 CLINICAL EVIDENCE BASE:
 ${evidenceSummary}
 
-Design a clear optimization plan. Only add a "swaps" entry for a primary ingredient if it directly conflicts with an allergy, medical condition, or dietary preference listed above — name which one in "reason". For every other primary ingredient, leave its category untouched and instead add a "methodAdjustments" entry (healthier variety of the same ingredient, less oil/sugar/salt, more fiber/veggies) so the final dish still tastes and looks like "${recipeStructure.recipe}". Follow all allergy and dietary restrictions strictly.`;
+Design a clear optimization plan. Only add a "swaps" entry for a primary ingredient if it directly conflicts with an allergy, medical condition, or dietary preference listed above (per the CORE RULE)${isNonVegRequest ? ', or per the NON-VEGETARIAN RULE' : ''} — name which one in "reason". For every other primary ingredient, leave its category untouched and instead add a "methodAdjustments" entry (healthier variety of the same ingredient, less oil/sugar/salt, more fiber/veggies) so the final dish still tastes and looks like "${recipeStructure.recipe}". Follow all allergy and dietary restrictions strictly.`;
 
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',

@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react";
 import RecipeCard from "../RecipeCard/RecipeCard";
+import RecipeCardSkeleton from "../RecipeCard/RecipeCardSkeleton";
 import { getHistory } from "../../services/userFeaturesApi";
+import { getRecipeImage } from "../../utils/recipeFallbackImage";
+import { readHistoryCache, writeHistoryCache } from "../../utils/recentHistoryCache";
 
 const CARD_WIDTH = 258;
 const GAP = 22;
-
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop";
 
 function timeAgo(dateString) {
   if (!dateString) return "";
@@ -29,14 +29,16 @@ function timeAgo(dateString) {
 export default function RecipeCarousel() {
   const carouselRef = useRef(null);
   const navigate = useNavigate();
-  const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cached = readHistoryCache();
+  const [recipes, setRecipes] = useState(cached || []);
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     getHistory()
       .then((res) => {
         if (res.success && Array.isArray(res.data)) {
           setRecipes(res.data);
+          writeHistoryCache(res.data);
         }
       })
       .catch(() => {})
@@ -51,7 +53,13 @@ export default function RecipeCarousel() {
   };
 
   if (loading) {
-    return <div className="h-70 animate-pulse rounded-3xl bg-cream-100" />;
+    return (
+      <div className="flex gap-[22px] overflow-hidden pb-3 px-1">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <RecipeCardSkeleton key={i} />
+        ))}
+      </div>
+    );
   }
 
   if (recipes.length === 0) {
@@ -119,7 +127,7 @@ export default function RecipeCarousel() {
         {recipes.map((recipe) => (
           <RecipeCard
             key={recipe.id}
-            image={recipe.image_url || FALLBACK_IMAGE}
+            image={getRecipeImage(recipe)}
             title={recipe.dish_name}
             subtitle={recipe.cuisine || recipe.category}
             description={recipe.description}

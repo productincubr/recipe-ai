@@ -27,6 +27,7 @@ import {
   Beaker,
   Cherry,
   Salad,
+  Drumstick,
   ChefHat,
   Snowflake,
   ThermometerSun,
@@ -148,6 +149,7 @@ const STEP_DEFS = {
     illustrationIcon: ChefHat,
     options: [
       { value: "Vegetarian", label: "Vegetarian", sub: "No meat or fish", icon: Salad, color: "bg-emerald-100 text-emerald-600" },
+      { value: "Non-Vegetarian", label: "Non-Vegetarian", sub: "Include meat, poultry, fish or egg", icon: Drumstick, color: "bg-red-100 text-red-500" },
       { value: "Vegan", label: "Vegan", sub: "100% plant based", icon: Sprout, color: "bg-lime-100 text-lime-600" },
       { value: "Pescatarian", label: "Pescatarian", sub: "Vegetarian plus fish", icon: Fish, color: "bg-teal-100 text-teal-500" },
       { value: "Halal", label: "Halal", sub: "Prepared per Halal guidelines", icon: ShieldCheck, color: "bg-amber-100 text-amber-600" },

@@ -21,7 +21,11 @@ export default function CreateRecipe() {
   const [step, setStep] = useState(initialDish ? 2 : 1);
   const [dish, setDish] = useState(initialDish);
   const [ingredients, setIngredients] = useState([]);
-  const [selections, setSelections] = useState({});
+  const [selections, setSelections] = useState(() => {
+    const dietPreference = location.state?.dietPreference;
+    if (!dietPreference) return {};
+    return { cookingStyle: dietPreference === "veg" ? "Vegetarian" : "Non-Vegetarian" };
+  });
   const [customAllergyText, setCustomAllergyText] = useState("");
   const [showMore, setShowMore] = useState(false);
   const [showInfo, setShowInfo] = useState(false);

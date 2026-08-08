@@ -11,9 +11,52 @@ import { useNavigate } from "react-router-dom";
 
 const PLACEHOLDER = "Type a recipe you’d like to make healthier…";
 
+function DietToggle({ diet, setDiet, className = "", compact = false, scope }) {
+  return (
+    <div
+      className={`flex shrink-0 items-center rounded-full border border-cream-300 bg-cream-100 p-1 ${className}`}
+    >
+      {[
+        { value: "veg", label: "Veg", color: "#0E8A16" },
+        { value: "nonveg", label: "Non-Veg", color: "#C1272D" },
+      ].map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => setDiet(opt.value)}
+          className={`relative flex items-center rounded-full font-semibold transition-colors ${
+            compact ? "gap-1 px-2 py-1 text-[10px]" : "gap-1.5 px-3 py-1.5 text-[12px]"
+          } ${diet === opt.value ? "text-ink" : "text-ink-muted hover:text-ink-soft"}`}
+        >
+          {diet === opt.value && (
+            <motion.span
+              layoutId={`diet-toggle-pill-${scope}`}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="absolute inset-0 rounded-full bg-white shadow-sm"
+            />
+          )}
+          <span
+            className={`relative z-10 flex shrink-0 items-center justify-center rounded-[3px] border-2 ${
+              compact ? "h-2.5 w-2.5" : "h-3 w-3"
+            }`}
+            style={{ borderColor: opt.color }}
+          >
+            <span
+              className={`rounded-full ${compact ? "h-0.75 w-0.75" : "h-1 w-1"}`}
+              style={{ backgroundColor: opt.color }}
+            />
+          </span>
+          <span className="relative z-10 whitespace-nowrap">{opt.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function SearchBar() {
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const [diet, setDiet] = useState("veg");
 
   const navigate = useNavigate();
   const cameraInputRef = useRef(null);
@@ -24,7 +67,7 @@ export default function SearchBar() {
 
     if (!query.trim()) return;
 
-    navigate("/create", { state: { dish: query.trim() } });
+    navigate("/create", { state: { dish: query.trim(), dietPreference: diet } });
   };
 
   const handleImagePicked = (e) => {
@@ -124,12 +167,12 @@ export default function SearchBar() {
 
         {/* Toolbar */}
 
-        <div className="mt-4 flex items-center justify-between border-t border-cream-300 pt-3.5">
-          <div className="flex items-center gap-1 text-ink-muted">
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-cream-300 pt-3.5">
+          <div className="flex min-w-0 items-center gap-1 text-ink-muted">
             <motion.button
               whileTap={{ scale: 0.9 }}
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
             >
               <Mic size={18} />
             </motion.button>
@@ -137,7 +180,7 @@ export default function SearchBar() {
               whileTap={{ scale: 0.9 }}
               type="button"
               onClick={() => cameraInputRef.current?.click()}
-              className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
             >
               <Camera size={18} />
             </motion.button>
@@ -145,10 +188,12 @@ export default function SearchBar() {
               whileTap={{ scale: 0.9 }}
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition hover:bg-cream-100 hover:text-ink"
             >
               <Paperclip size={18} />
             </motion.button>
+
+            <DietToggle diet={diet} setDiet={setDiet} compact scope="mobile" className="ml-1" />
           </div>
 
           <motion.button
@@ -249,6 +294,12 @@ export default function SearchBar() {
           placeholder:text-ink-muted
         "
         />
+
+        {/* Diet preference */}
+
+        <DietToggle diet={diet} setDiet={setDiet} scope="desktop" className="shrink-0" />
+
+        <span className="h-7 w-px shrink-0 bg-cream-300" aria-hidden="true" />
 
         {/* Camera */}
 

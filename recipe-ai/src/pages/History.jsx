@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { UtensilsCrossed } from 'lucide-react';
 import { getHistory } from '../services/userFeaturesApi';
 import RecipeCard from '../components/RecipeCard/RecipeCard';
-
-const FALLBACK_IMAGE =
-  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop';
+import RecipeCardSkeleton from '../components/RecipeCard/RecipeCardSkeleton';
+import { getRecipeImage } from '../utils/recipeFallbackImage';
+import { readHistoryCache, writeHistoryCache } from '../utils/recentHistoryCache';
 
 function timeAgo(dateString) {
   if (!dateString) return '';
@@ -24,14 +24,16 @@ function timeAgo(dateString) {
 }
 
 export default function History() {
-  const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cached = readHistoryCache();
+  const [recipes, setRecipes] = useState(cached || []);
+  const [loading, setLoading] = useState(!cached);
   const navigate = useNavigate();
 
   useEffect(() => {
     getHistory().then(res => {
       if (res.success) {
         setRecipes(res.data);
+        writeHistoryCache(res.data);
       }
       setLoading(false);
     });
@@ -41,7 +43,11 @@ export default function History() {
     <div className="p-8 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-olive-dark">Your Recipe History</h1>
       {loading ? (
-        <p className="text-ink-soft">Loading history...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center sm:justify-items-start gap-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <RecipeCardSkeleton key={i} />
+          ))}
+        </div>
       ) : recipes.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-cream-300 bg-cream-100 py-14 text-center">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-olive-soft text-olive-dark">
@@ -54,7 +60,7 @@ export default function History() {
           {recipes.map(recipe => (
             <RecipeCard
               key={recipe.id}
-              image={recipe.image_url || FALLBACK_IMAGE}
+              image={getRecipeImage(recipe)}
               title={recipe.dish_name}
               subtitle={recipe.cuisine || recipe.category}
               description={recipe.description}

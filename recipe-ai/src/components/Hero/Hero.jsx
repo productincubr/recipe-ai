@@ -10,7 +10,7 @@ function greetingForHour(hour) {
   return "Good evening";
 }
 
-export default function Hero({ userName = "Ananya" }) {
+export default function Hero() {
   const greeting = greetingForHour(new Date().getHours());
 
   return (
@@ -28,7 +28,7 @@ export default function Hero({ userName = "Ananya" }) {
         {/* Greeting */}
 
         <p className="flex items-center gap-2 text-[15px] sm:text-[18px] text-terracotta font-medium">
-          🌿 {greeting}, {userName}! 👋
+          🌿 {greeting}! 👋
         </p>
 
         {/* Heading */}
