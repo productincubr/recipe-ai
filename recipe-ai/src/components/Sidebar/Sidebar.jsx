@@ -4,6 +4,7 @@ import NavItem from './NavItem'
 import RecentRecipes from './RecentRecipes'
 import UserProfile from './UserProfile'
 import { sidebarLinks } from '../../data/navigation'
+import { useSavedRecipes } from '../../context/SavedRecipesContext'
 
 /**
  * The fixed left sidebar. Internally scrollable so long content (recent
@@ -14,6 +15,8 @@ import { sidebarLinks } from '../../data/navigation'
  *   mobile drawer).
  */
 export default function Sidebar({ onNavigate }) {
+  const { savedIds } = useSavedRecipes()
+
   return (
     <div className="flex h-full flex-col bg-cream-100">
       {/* Header — logo + primary CTA (pinned) */}
@@ -27,7 +30,11 @@ export default function Sidebar({ onNavigate }) {
         <ul className="space-y-1">
           {sidebarLinks.map((link) => (
             <li key={link.label}>
-              <NavItem {...link} onNavigate={onNavigate} />
+              <NavItem
+                {...link}
+                badge={link.to === '/saved' ? (savedIds.size > 0 ? savedIds.size : null) : link.badge}
+                onNavigate={onNavigate}
+              />
             </li>
           ))}
         </ul>

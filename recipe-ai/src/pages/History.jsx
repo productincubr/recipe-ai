@@ -6,6 +6,7 @@ import RecipeCard from '../components/RecipeCard/RecipeCard';
 import RecipeCardSkeleton from '../components/RecipeCard/RecipeCardSkeleton';
 import { getRecipeImage } from '../utils/recipeFallbackImage';
 import { readHistoryCache, writeHistoryCache } from '../utils/recentHistoryCache';
+import { useSavedRecipes } from '../context/SavedRecipesContext';
 
 function timeAgo(dateString) {
   if (!dateString) return '';
@@ -28,6 +29,7 @@ export default function History() {
   const [recipes, setRecipes] = useState(cached || []);
   const [loading, setLoading] = useState(!cached);
   const navigate = useNavigate();
+  const { savedIds, toggleSave } = useSavedRecipes();
 
   useEffect(() => {
     getHistory().then(res => {
@@ -66,6 +68,8 @@ export default function History() {
               description={recipe.description}
               timeAgo={timeAgo(recipe.created_at)}
               onOpen={() => navigate(`/recipe/${recipe.id}`)}
+              saved={savedIds.has(recipe.id)}
+              onSave={() => toggleSave(recipe.id)}
             />
           ))}
         </div>

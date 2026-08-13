@@ -18,7 +18,7 @@ export const sidebarLinks = [
   { label: 'Home', icon: Home, to: '/', badge: null },
   { label: 'Scan a meal', icon: Camera, to: '/scan', badge: null },
   { label: 'History', icon: History, to: '/history', badge: null },
-  { label: 'Saved recipes', icon: Bookmark, to: '/saved', badge: 12 },
+  { label: 'Saved recipes', icon: Bookmark, to: '/saved', badge: null },
   { label: 'Meal planner', icon: CalendarDays, to: '/meal-planner', badge: null },
   { label: 'Shopping list', icon: ShoppingBag, to: '/shopping-list', badge: null },
   { label: 'Nutrition', icon: BarChart3, to: '/nutrition', badge: null },

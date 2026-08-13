@@ -31,6 +31,7 @@ export default function RecipeCard({
   description,
   onOpen,
   onSave,
+  saved = false,
 }) {
   return (
     <motion.article
@@ -90,9 +91,14 @@ export default function RecipeCard({
         <motion.button
           whileTap={{ scale: 0.85 }}
           onClick={onSave}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-olive-soft hover:text-olive-dark"
+          title={saved ? "Remove bookmark" : "Bookmark recipe"}
+          className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+            saved
+              ? "bg-olive-soft text-olive-dark"
+              : "text-ink-muted hover:bg-olive-soft hover:text-olive-dark"
+          }`}
         >
-          <Bookmark size={15} />
+          <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
         </motion.button>
 
       </div>

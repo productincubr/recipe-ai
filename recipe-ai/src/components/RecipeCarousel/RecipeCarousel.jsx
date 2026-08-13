@@ -6,6 +6,7 @@ import RecipeCardSkeleton from "../RecipeCard/RecipeCardSkeleton";
 import { getHistory } from "../../services/userFeaturesApi";
 import { getRecipeImage } from "../../utils/recipeFallbackImage";
 import { readHistoryCache, writeHistoryCache } from "../../utils/recentHistoryCache";
+import { useSavedRecipes } from "../../context/SavedRecipesContext";
 
 const CARD_WIDTH = 258;
 const GAP = 22;
@@ -32,6 +33,7 @@ export default function RecipeCarousel() {
   const cached = readHistoryCache();
   const [recipes, setRecipes] = useState(cached || []);
   const [loading, setLoading] = useState(!cached);
+  const { savedIds, toggleSave } = useSavedRecipes();
 
   useEffect(() => {
     getHistory()
@@ -133,6 +135,8 @@ export default function RecipeCarousel() {
             description={recipe.description}
             timeAgo={timeAgo(recipe.created_at)}
             onOpen={() => navigate(`/recipe/${recipe.id}`)}
+            saved={savedIds.has(recipe.id)}
+            onSave={() => toggleSave(recipe.id)}
           />
         ))}
       </div>

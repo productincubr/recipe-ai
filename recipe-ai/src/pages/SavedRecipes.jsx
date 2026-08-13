@@ -1,51 +1,85 @@
 import { useEffect, useState } from 'react';
-import { getSavedRecipes, removeSavedRecipe } from '../services/userFeaturesApi';
+import { useNavigate } from 'react-router-dom';
+import { BookmarkX } from 'lucide-react';
+import { getSavedRecipes } from '../services/userFeaturesApi';
 import RecipeCard from '../components/RecipeCard/RecipeCard';
-import { BookmarkMinus } from 'lucide-react';
+import RecipeCardSkeleton from '../components/RecipeCard/RecipeCardSkeleton';
+import { getRecipeImage } from '../utils/recipeFallbackImage';
+import { useSavedRecipes } from '../context/SavedRecipesContext';
+
+function timeAgo(dateString) {
+  if (!dateString) return '';
+  const diffMs = Date.now() - new Date(dateString).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months > 1 ? 's' : ''} ago`;
+}
 
 export default function SavedRecipes() {
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { toggleSave } = useSavedRecipes();
 
   useEffect(() => {
-    fetchSaved();
-  }, []);
-
-  const fetchSaved = () => {
-    setLoading(true);
-    getSavedRecipes().then(res => {
+    getSavedRecipes().then((res) => {
       if (res.success) {
         setRecipes(res.data);
       }
       setLoading(false);
     });
-  };
+  }, []);
 
-  const handleRemove = async (id) => {
-    await removeSavedRecipe(id);
-    fetchSaved();
+  const handleRemove = (id) => {
+    setRecipes((prev) => prev.filter((r) => r.id !== id));
+    toggleSave(id);
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-olive-dark">Saved Recipes</h1>
+    <div className="mx-auto max-w-7xl p-8">
+      <h1 className="mb-1 font-serif text-3xl font-bold text-ink">Saved Recipes</h1>
+      <p className="mb-6 text-sm text-ink-muted">
+        Every recipe you've bookmarked, ready whenever you want to cook it again.
+      </p>
+
       {loading ? (
-        <p>Loading saved recipes...</p>
+        <div className="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 sm:justify-items-start lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <RecipeCardSkeleton key={i} />
+          ))}
+        </div>
       ) : recipes.length === 0 ? (
-        <p>You haven't saved any recipes yet.</p>
+        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-cream-300 bg-cream-100 py-14 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-olive-soft text-olive-dark">
+            <BookmarkX size={20} />
+          </span>
+          <p className="text-sm text-ink-soft">You haven't saved any recipes yet.</p>
+          <p className="max-w-xs text-xs text-ink-muted">
+            Tap the bookmark icon on any recipe to keep it here for later.
+          </p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recipes.map(recipe => (
-            <div key={recipe.id} className="relative">
-              <RecipeCard recipe={recipe} initialSaved={true} />
-              <button 
-                onClick={() => handleRemove(recipe.id)}
-                className="absolute top-4 right-4 bg-white p-2 rounded-full shadow hover:bg-red-50 text-red-500 z-10"
-                title="Remove from saved"
-              >
-                <BookmarkMinus size={20} />
-              </button>
-            </div>
+        <div className="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 sm:justify-items-start lg:grid-cols-3 xl:grid-cols-4">
+          {recipes.map((recipe) => (
+            <RecipeCard
+              key={recipe.id}
+              image={getRecipeImage(recipe)}
+              title={recipe.dish_name}
+              subtitle={recipe.cuisine || recipe.category}
+              description={recipe.description}
+              timeAgo={timeAgo(recipe.created_at)}
+              onOpen={() => navigate(`/recipe/${recipe.id}`)}
+              onSave={() => handleRemove(recipe.id)}
+              saved
+            />
           ))}
         </div>
       )}

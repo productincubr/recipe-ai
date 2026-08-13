@@ -12,6 +12,8 @@ import CreateRecipe from './pages/CreateRecipe'
 import ScanMeal from './pages/ScanMeal'
 import Blog from './pages/Blog'
 import BlogPost from './pages/BlogPost'
+import HowItWorks from './pages/HowItWorks'
+import { SavedRecipesProvider } from './context/SavedRecipesContext'
 
 /**
  * Root of the RecipeAI front-end.
@@ -19,29 +21,28 @@ import BlogPost from './pages/BlogPost'
  */
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Standalone full-screen wizard — no sidebar/navbar chrome */}
-        <Route path="/create" element={<CreateRecipe />} />
-        <Route element={<AppLayout />}>
-          <Route index element={<Home />} />
-          <Route path="/scan" element={<ScanMeal />} />
-          <Route path="/recipe/:id" element={<RecipeDetails />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/saved" element={<SavedRecipes />} />
-          <Route path="/meal-planner" element={<MealPlanner />} />
-          <Route path="/shopping-list" element={<ShoppingList />} />
-          <Route path="/nutrition" element={<Nutrition />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
-          <Route
-            path="/how-it-works"
-            element={<Placeholder title="How It Works" />}
-          />
-          <Route path="/pricing" element={<Placeholder title="Pricing" />} />
-          <Route path="*" element={<Placeholder title="Page not found" />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <SavedRecipesProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Standalone full-screen wizard — no sidebar/navbar chrome */}
+          <Route path="/create" element={<CreateRecipe />} />
+          <Route element={<AppLayout />}>
+            <Route index element={<Home />} />
+            <Route path="/scan" element={<ScanMeal />} />
+            <Route path="/recipe/:id" element={<RecipeDetails />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/saved" element={<SavedRecipes />} />
+            <Route path="/meal-planner" element={<MealPlanner />} />
+            <Route path="/shopping-list" element={<ShoppingList />} />
+            <Route path="/nutrition" element={<Nutrition />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/pricing" element={<Placeholder title="Pricing" />} />
+            <Route path="*" element={<Placeholder title="Page not found" />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </SavedRecipesProvider>
   )
 }

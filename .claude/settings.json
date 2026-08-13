@@ -19,7 +19,23 @@
       "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\\\\n\" -X POST http://localhost:3000/api/recipes/scan -H \"Content-Type: application/json\" -d @scan_payload2.json)",
       "Bash(node check_scan_live.js)",
       "Bash(taskkill //PID 33528 //F)",
-      "Bash(taskkill //PID 33764 //F)"
+      "Bash(taskkill //PID 33764 //F)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code} | type: %{content_type} | size: %{size_download}\\\\n\" \"https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=1400&auto=format&fit=crop&q=70\")",
+      "Bash(node check_hover.mjs)",
+      "Bash(node check_hover2.mjs)",
+      "Bash(node check_hover3.mjs)",
+      "Bash(node check_entry_cards.mjs)",
+      "Bash(curl -sS -o card1.jpg \"https://images.unsplash.com/photo-1547592180-85f173990554?w=800&auto=format&fit=crop\")",
+      "Bash(curl -sS -o card2.jpg \"https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&auto=format&fit=crop\")",
+      "Bash(curl -sS -o card3.jpg \"https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&auto=format&fit=crop\")",
+      "Bash(curl -sS -X POST https://recipe-final-zjcl.onrender.com/api/user/saved -H 'Content-Type: application/json' -d '{\"recipe_id\":\"97ebfc86-6a27-4a43-aa68-df9b6fd99074\"}' --max-time 20)",
+      "Bash(curl -sS \"https://recipe-final-zjcl.onrender.com/api/user/saved\" --max-time 20)",
+      "Bash(node check_saved.mjs)",
+      "Bash(node check_saved2.mjs)",
+      "Bash(node check_img.mjs)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code} | type: %{content_type} | size: %{size_download}\\\\n\" \"https://yfspprslsrefqjvwphyb.supabase.co/storage/v1/object/public/Images/recipe-1786357413464-steamed-steel-cut-oats-with-chinese-style-vegetables.png\" --max-time 15)",
+      "Bash(node check_img2.mjs)",
+      "Bash(curl -sS -X DELETE \"https://recipe-final-zjcl.onrender.com/api/user/saved/97ebfc86-6a27-4a43-aa68-df9b6fd99074\" --max-time 45)"
     ]
   }
 }

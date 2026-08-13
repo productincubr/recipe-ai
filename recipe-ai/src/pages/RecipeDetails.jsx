@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
-import { saveRecipe, removeSavedRecipe, getSavedRecipes } from '../services/userFeaturesApi';
+import { useSavedRecipes } from '../context/SavedRecipesContext';
 
 const NON_VEG_KEYWORDS = [
   'chicken', 'mutton', 'lamb', 'beef', 'pork', 'bacon', 'ham', 'sausage',
@@ -95,14 +95,13 @@ export default function RecipeDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const preferences = location.state?.preferences;
+  const { savedIds, toggleSave } = useSavedRecipes();
 
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
 
-  const [saved, setSaved] = useState(false);
-  const [savingBookmark, setSavingBookmark] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const cardRef = useRef(null);
@@ -122,7 +121,7 @@ export default function RecipeDetails() {
         if (res.ok && result.image_url) {
           setRecipe((prev) => (prev ? { ...prev, image_url: result.image_url } : prev));
         }
-      } catch (err) {
+      } catch {
         // Non-fatal — the "No Image Available" placeholder stays up.
       } finally {
         setImageLoading(false);
@@ -142,7 +141,7 @@ export default function RecipeDetails() {
         } else {
           setError(result.error || 'Recipe not found');
         }
-      } catch (err) {
+      } catch {
         setError('Network error. Failed to load recipe.');
       } finally {
         setLoading(false);
@@ -152,33 +151,8 @@ export default function RecipeDetails() {
     fetchRecipe();
   }, [id]);
 
-  useEffect(() => {
-    getSavedRecipes()
-      .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          setSaved(res.data.some((r) => r.id === id));
-        }
-      })
-      .catch(() => {});
-  }, [id]);
-
-  const handleToggleSave = async () => {
-    if (savingBookmark) return;
-    setSavingBookmark(true);
-    try {
-      if (saved) {
-        await removeSavedRecipe(id);
-        setSaved(false);
-      } else {
-        await saveRecipe(id);
-        setSaved(true);
-      }
-    } catch (err) {
-      // Non-fatal — leave saved state unchanged on failure.
-    } finally {
-      setSavingBookmark(false);
-    }
-  };
+  const saved = savedIds.has(id);
+  const handleToggleSave = () => toggleSave(id);
 
   const handleShare = async () => {
     const shareData = {
@@ -189,7 +163,7 @@ export default function RecipeDetails() {
     if (navigator.share) {
       try {
         await navigator.share(shareData);
-      } catch (err) {
+      } catch {
         // User cancelled or share failed — nothing to do.
       }
     } else {
@@ -281,9 +255,8 @@ export default function RecipeDetails() {
 
           <button
             onClick={handleToggleSave}
-            disabled={savingBookmark}
             title={saved ? 'Remove bookmark' : 'Bookmark recipe'}
-            className={`flex items-center justify-center h-10 w-10 rounded-full border transition-colors shadow-sm disabled:opacity-60 ${
+            className={`flex items-center justify-center h-10 w-10 rounded-full border transition-colors shadow-sm ${
               saved
                 ? 'bg-olive-soft border-olive text-olive-dark'
                 : 'bg-white border-cream-300 text-ink-soft hover:bg-cream-100 hover:text-ink'
