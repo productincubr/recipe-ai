@@ -75,12 +75,14 @@ export default function RecentRecipes() {
                     className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-cream-200"
                   >
                     {recipe.image_url ? (
-                      <img
-                        src={recipe.image_url}
-                        alt=""
-                        loading="lazy"
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-cream-300"
-                      />
+                        <img
+                          src={recipe.image_url}
+                          alt=""
+                          loading="eager"
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-cream-300"
+                        />
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded-lg bg-cream-300 flex items-center justify-center text-ink-muted ring-1 ring-cream-300">
                         <Utensils size={18} />
