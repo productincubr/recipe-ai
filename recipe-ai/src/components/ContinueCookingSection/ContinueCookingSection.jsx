@@ -61,6 +61,8 @@ export default function ContinueCookingSection() {
         <button
           onClick={() => navigate("/history")}
           className="
+          shrink-0
+          whitespace-nowrap
           rounded-full
           border
           border-[#E5E5E5]

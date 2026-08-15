@@ -87,6 +87,7 @@ export default function FeatureCard({
           w-fit
           items-center
           gap-2
+          whitespace-nowrap
           rounded-xl
           bg-[#014E49]
           px-5

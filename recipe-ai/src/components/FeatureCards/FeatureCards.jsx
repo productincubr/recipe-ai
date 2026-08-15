@@ -33,7 +33,7 @@ const CARDS = [
     id: "ingredients",
     title: "Create From Ingredients",
     description: "Tell us what's in your kitchen, we'll build a healthy recipe",
-    cta: "Create Recipe From Ingredients",
+    cta: "Create Recipe",
     icon: Upload,
     bg: "#0A8B86",
     image:
