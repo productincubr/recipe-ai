@@ -35,7 +35,14 @@
       "Bash(node check_img.mjs)",
       "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code} | type: %{content_type} | size: %{size_download}\\\\n\" \"https://yfspprslsrefqjvwphyb.supabase.co/storage/v1/object/public/Images/recipe-1786357413464-steamed-steel-cut-oats-with-chinese-style-vegetables.png\" --max-time 15)",
       "Bash(node check_img2.mjs)",
-      "Bash(curl -sS -X DELETE \"https://recipe-final-zjcl.onrender.com/api/user/saved/97ebfc86-6a27-4a43-aa68-df9b6fd99074\" --max-time 45)"
+      "Bash(curl -sS -X DELETE \"https://recipe-final-zjcl.onrender.com/api/user/saved/97ebfc86-6a27-4a43-aa68-df9b6fd99074\" --max-time 45)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5175 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue })",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" https://recipe-final-zjcl.onrender.com/api/user/meal-plans)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" https://recipe-final-zjcl.onrender.com/api/user/saved)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" https://recipe-final-zjcl.onrender.com/api/user/history)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" https://recipe-final-zjcl.onrender.com/api/user/shopping-list)",
+      "Bash(node \"C:\\\\Users\\\\soura\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-soura-OneDrive-Desktop-recipe-ai\\\\01270966-269a-4bc8-8a3b-a4feaa5ab0fe\\\\scratchpad\\\\check_tables.mjs\" \".env\")",
+      "Bash(node check_tables.mjs)"
     ]
   }
 }

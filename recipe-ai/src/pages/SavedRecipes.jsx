@@ -51,7 +51,7 @@ export default function SavedRecipes() {
       </p>
 
       {loading ? (
-        <div className="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 sm:justify-items-start lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid justify-items-center gap-6 [grid-template-columns:repeat(auto-fill,minmax(258px,1fr))] sm:justify-items-start">
           {Array.from({ length: 8 }).map((_, i) => (
             <RecipeCardSkeleton key={i} />
           ))}
@@ -67,7 +67,7 @@ export default function SavedRecipes() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 sm:justify-items-start lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid justify-items-center gap-6 [grid-template-columns:repeat(auto-fill,minmax(258px,1fr))] sm:justify-items-start">
           {recipes.map((recipe) => (
             <RecipeCard
               key={recipe.id}
