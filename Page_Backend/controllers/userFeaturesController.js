@@ -4,11 +4,20 @@ import logger from '../config/logger.js';
 // ==========================================
 // HISTORY (Recently generated recipes)
 // ==========================================
+// List views (recently-viewed carousel, history grid, sidebar, nutrition
+// summary) only ever read these fields — never the heavy `steps`,
+// `ingredients`, `healthier_explanation` or `optimization_plan` blobs, which
+// blow the payload up to 100KB+ for 20 rows and make this feel far slower
+// than the fully-static trending carousel. Full detail is fetched separately
+// when a recipe is actually opened.
+const HISTORY_LIST_COLUMNS =
+  'id, dish_name, category, cuisine, description, image_url, calories, protein, fats, fiber, created_at';
+
 export const getHistory = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('recipes')
-      .select('*')
+      .select(HISTORY_LIST_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(20);
 

@@ -31,7 +31,7 @@ export default function ContinueCookingSection() {
 
       <div className="mb-8 flex items-center justify-between">
 
-        <div className="flex items-end gap-4 flex-wrap">
+        <div>
 
           <h2
             className="
@@ -47,7 +47,7 @@ export default function ContinueCookingSection() {
 
           <p
             className="
-            mb-2
+            mt-2
             text-[18px]
             text-[#767676]
             tracking-wide

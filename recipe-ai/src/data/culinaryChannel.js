@@ -59,15 +59,13 @@ export const channelHero = {
 }
 
 /**
- * Video cards for the horizontally scrollable carousel.
- * `titleLines` renders the handwritten title across one or more lines,
- * exactly like the design.
+ * Video cards for the grid. `views` and `uploadedAgo` back the YouTube-style
+ * metadata line rendered under each thumbnail.
  */
 export const channelVideos = [
   {
     id: 'creamy-pesto-pasta',
     title: 'Creamy Pesto Pasta',
-    titleLines: ['Creamy', 'Pesto', 'Pasta'],
     image:
       'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=700&h=500&fit=crop',
     tags: ['Vegetarian', 'Quick Meal'],
@@ -75,11 +73,12 @@ export const channelVideos = [
     youtubeId: 'OrKuktJqGJo',
     chef: 'Chef Maya Rao',
     difficulty: 'Easy',
+    views: '128K views',
+    uploadedAgo: '2 weeks ago',
   },
   {
     id: 'tofu-stir-fry-bowl',
     title: 'Tofu Stir Fry Bowl',
-    titleLines: ['Tofu', 'Stir Fry', 'Bowl'],
     image:
       'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=700&h=500&fit=crop',
     tags: ['High Protein', 'Low Calorie'],
@@ -87,11 +86,12 @@ export const channelVideos = [
     youtubeId: 'U67i1TAIr2U',
     chef: 'Chef Arjun Mehta',
     difficulty: 'Easy',
+    views: '86K views',
+    uploadedAgo: '5 days ago',
   },
   {
     id: 'quinoa-veggie-bowl',
     title: 'Quinoa Veggie Bowl',
-    titleLines: ['Quinoa', 'Veggie', 'Bowl'],
     image:
       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=700&h=500&fit=crop',
     tags: ['High Fiber', 'Vegan'],
@@ -99,11 +99,12 @@ export const channelVideos = [
     youtubeId: 'mPaJFxzwi-U',
     chef: 'Chef Priya Nair',
     difficulty: 'Easy',
+    views: '204K views',
+    uploadedAgo: '3 weeks ago',
   },
   {
     id: 'berry-smoothie-bowl',
     title: 'Berry Smoothie Bowl',
-    titleLines: ['Berry', 'Smoothie', 'Bowl'],
     image:
       'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=700&h=500&fit=crop',
     tags: ['Antioxidant Rich', 'No Sugar Added'],
@@ -111,11 +112,12 @@ export const channelVideos = [
     youtubeId: 's9f08Qsz-KE',
     chef: 'Chef Maya Rao',
     difficulty: 'Easy',
+    views: '312K views',
+    uploadedAgo: '1 month ago',
   },
   {
     id: 'stuffed-bell-peppers',
     title: 'Stuffed Bell Peppers',
-    titleLines: ['Stuffed', 'Bell', 'Peppers'],
     image:
       'https://images.unsplash.com/photo-1600335895229-6e75511892c8?w=700&h=500&fit=crop',
     tags: ['Vegetarian', 'High Protein'],
@@ -123,11 +125,12 @@ export const channelVideos = [
     youtubeId: 'Go_v-2MLxCw',
     chef: 'Chef Arjun Mehta',
     difficulty: 'Medium',
+    views: '57K views',
+    uploadedAgo: '4 days ago',
   },
   {
     id: 'chocolate-avocado-mousse',
     title: 'Chocolate Avocado Mousse',
-    titleLines: ['Chocolate', 'Avocado', 'Mousse'],
     image:
       'https://images.unsplash.com/photo-1541599540903-216a46ca1dc0?w=700&h=500&fit=crop',
     tags: ['Healthy Dessert', 'Gluten Free'],
@@ -135,6 +138,8 @@ export const channelVideos = [
     youtubeId: 'wuZffe60q4M',
     chef: 'Chef Priya Nair',
     difficulty: 'Easy',
+    views: '441K views',
+    uploadedAgo: '6 days ago',
   },
 ]
 
