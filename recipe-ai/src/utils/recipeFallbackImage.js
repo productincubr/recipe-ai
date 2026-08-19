@@ -18,8 +18,19 @@ const CUISINE_IMAGES = {
 const DEFAULT_IMAGE =
   "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop";
 
+/**
+ * AI-generated recipe photos are stored as full-resolution PNGs (often
+ * 1-2MB) — huge for a 258x168 card. Route them through wsrv.nl's free
+ * image proxy to fetch a properly sized, compressed copy instead of the
+ * original file; the Unsplash fallbacks above are already served resized
+ * so they're returned as-is.
+ */
+function resized(url, width = 400) {
+  return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=${width}&q=75&output=webp`;
+}
+
 export function getRecipeImage(recipe) {
-  if (recipe.image_url) return recipe.image_url;
+  if (recipe.image_url) return resized(recipe.image_url);
 
   const haystack = `${recipe.cuisine || ""} ${recipe.category || ""} ${recipe.dish_name || ""}`.toLowerCase();
   const match = Object.keys(CUISINE_IMAGES).find((key) => haystack.includes(key));
