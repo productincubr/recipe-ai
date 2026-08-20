@@ -33,7 +33,7 @@ export default function Hero() {
 
         {/* Heading */}
 
-        <h1 className="mt-3 font-serif text-[32px] leading-[1.1] sm:text-[42px] sm:leading-[1.1] md:text-[55px] md:leading-[68px] font-bold text-ink max-w-full">
+        <h1 className="mt-3 font-serif text-[32px] leading-[1.1] sm:text-[42px] sm:leading-[1.1] md:text-[55px] md:leading-[68px] font-bold text-ink max-w-full mb-6">
           What would you like to cook today?
         </h1>
 
