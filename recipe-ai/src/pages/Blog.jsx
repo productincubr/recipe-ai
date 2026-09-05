@@ -26,7 +26,7 @@ export default function Blog() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 px-5 pb-20 pt-6 sm:px-8">
       <div>
-        <p className="type-eyebrow">RecipeAI Blog</p>
+        <p className="type-eyebrow text-[18px] ">RecipeAI Blog</p>
         <h1 className="mt-2 font-serif text-[32px] font-bold leading-tight text-ink sm:text-[44px]">
           Food, nutrition & practical cooking advice
         </h1>

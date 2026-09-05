@@ -90,12 +90,31 @@ export const removeSavedRecipe = async (req, res) => {
 // ==========================================
 export const getMealPlans = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data: mealPlans, error: mealPlansError } = await supabase
       .from('meal_plans')
-      .select('*, recipes(*)')
+      .select('*')
       .order('plan_date', { ascending: true });
 
-    if (error) throw error;
+    if (mealPlansError) throw mealPlansError;
+
+    const recipeIds = [...new Set(mealPlans.map((plan) => plan.recipe_id))];
+    let recipesById = new Map();
+
+    if (recipeIds.length > 0) {
+      const { data: recipes, error: recipesError } = await supabase
+        .from('recipes')
+        .select('*')
+        .in('id', recipeIds);
+
+      if (recipesError) throw recipesError;
+      recipesById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+    }
+
+    const data = mealPlans.map((plan) => ({
+      ...plan,
+      recipes: recipesById.get(plan.recipe_id) || null,
+    }));
+
     res.status(200).json({ success: true, data });
   } catch (error) {
     logger.error('Error fetching meal plans:', { error: error.message });
