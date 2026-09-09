@@ -117,8 +117,19 @@ export const getMealPlans = async (req, res) => {
 
     res.status(200).json({ success: true, data });
   } catch (error) {
-    logger.error('Error fetching meal plans:', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch meal plans' });
+    const message = error?.message || 'Unknown database error';
+    logger.error('Error fetching meal plans:', {
+      error: message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch meal plans',
+      details: message,
+      code: error?.code || null,
+    });
   }
 };
 
