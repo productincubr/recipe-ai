@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase.js';
 import logger from '../config/logger.js';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 
 // Helper function to print a beautiful comparative token matrix in the server logs
 const printTokenMatrixLog = (modelUsed = 'unknown', promptTokens = 0, completionTokens = 0) => {
@@ -57,18 +58,27 @@ export const uploadImageToStorage = async (base64DataUrl, dishName) => {
 
     // Parse and decode base64
     const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    
+    const rawBuffer = Buffer.from(base64Data, 'base64');
+
+    // Stability AI returns full-res PNGs (1-2MB) — nobody needs that much
+    // detail for a 258px card or a 320px hero image. Downscale + recompress
+    // to webp once here, at generation time, instead of paying that cost on
+    // every viewer's first request via a runtime resizing proxy.
+    const buffer = await sharp(rawBuffer)
+      .resize({ width: 800, withoutEnlargement: true })
+      .webp({ quality: 78 })
+      .toBuffer();
+
     // Clean filename
     const cleanDishName = dishName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const fileName = `recipe-${Date.now()}-${cleanDishName}.png`;
+    const fileName = `recipe-${Date.now()}-${cleanDishName}.webp`;
 
     logger.info(`Uploading generated image for "${dishName}" to Supabase storage...`);
-    
+
     const { data, error } = await supabase.storage
       .from('Images')
       .upload(fileName, buffer, {
-        contentType: 'image/png',
+        contentType: 'image/webp',
         upsert: true
       });
 
