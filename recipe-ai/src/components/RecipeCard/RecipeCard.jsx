@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Eye,
@@ -32,7 +33,10 @@ export default function RecipeCard({
   onOpen,
   onSave,
   saved = false,
+  priority = false,
 }) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   return (
     <motion.article
       variants={cardVariant}
@@ -50,7 +54,8 @@ export default function RecipeCard({
       flex-col
       snap-start
       shrink-0
-      w-[258px]
+      w-[85vw]
+      max-w-[258px]
       rounded-[28px]
       border
       border-cream-300
@@ -115,20 +120,26 @@ export default function RecipeCard({
         shrink-0
         overflow-hidden
         rounded-[20px]
+        bg-cream-200
         "
       >
         <img
           src={image}
           alt={title}
-          className="
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          decoding="async"
+          onLoad={() => setImageLoaded(true)}
+          className={`
           h-full
           w-full
           object-cover
-          transition-transform
+          transition-[opacity,transform]
           duration-500
           ease-out
           group-hover:scale-110
-          "
+          ${imageLoaded ? "opacity-100" : "opacity-0"}
+          `}
         />
       </button>
 

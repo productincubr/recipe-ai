@@ -21,6 +21,7 @@ import {
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
+import { getRecipeImage } from '../utils/recipeFallbackImage';
 
 const NON_VEG_KEYWORDS = [
   'chicken', 'mutton', 'lamb', 'beef', 'pork', 'bacon', 'ham', 'sausage',
@@ -294,27 +295,20 @@ export default function RecipeDetails() {
           </div>
 
           {/* Right Image */}
-          {recipe.image_url ? (
-            <div className="w-full md:w-80 h-56 rounded-2xl overflow-hidden bg-cream-200 shrink-0 border border-cream-300 shadow-sm">
-              <img
-                src={recipe.image_url}
-                alt={recipe.dish_name}
-                crossOrigin="anonymous"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="w-full md:w-80 h-56 rounded-2xl bg-cream-100 border border-cream-300 shrink-0 flex flex-col items-center justify-center gap-2 text-ink-muted text-sm">
-              {imageLoading ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  Generating image...
-                </>
-              ) : (
-                'No Image Available'
-              )}
-            </div>
-          )}
+          <div className="relative w-full md:w-80 h-56 rounded-2xl overflow-hidden bg-cream-200 shrink-0 border border-cream-300 shadow-sm">
+            <img
+              src={recipe.image_url || getRecipeImage(recipe)}
+              alt={recipe.dish_name}
+              crossOrigin="anonymous"
+              className="w-full h-full object-cover"
+            />
+            {!recipe.image_url && imageLoading && (
+              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-ink/40 text-white text-sm font-medium">
+                <Loader2 size={20} className="animate-spin" />
+                Generating image...
+              </div>
+            )}
+          </div>
         </div>
 
         {badges.length > 0 && (

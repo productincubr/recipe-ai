@@ -85,8 +85,10 @@ export default function RecipeCarousel() {
       <button
         onClick={() => scroll(-1)}
         className="
+        hidden
+        sm:flex
         absolute
-        left-[-22px]
+        left-[-40px]
         top-1/2
         z-20
         -translate-y-1/2
@@ -97,7 +99,6 @@ export default function RecipeCarousel() {
         border-[#E7E7E7]
         bg-white
         shadow-lg
-        flex
         items-center
         justify-center
         transition-all
@@ -126,7 +127,7 @@ export default function RecipeCarousel() {
         scrollbar-hide
         "
       >
-        {recipes.map((recipe) => (
+        {recipes.map((recipe, index) => (
           <RecipeCard
             key={recipe.id}
             image={getRecipeImage(recipe)}
@@ -137,6 +138,7 @@ export default function RecipeCarousel() {
             onOpen={() => navigate(`/recipe/${recipe.id}`)}
             saved={savedIds.has(recipe.id)}
             onSave={() => toggleSave(recipe.id)}
+            priority={index < 4}
           />
         ))}
       </div>
@@ -146,8 +148,10 @@ export default function RecipeCarousel() {
       <button
         onClick={() => scroll(1)}
         className="
+        hidden
+        sm:flex
         absolute
-        right-[-22px]
+        right-[-40px]
         top-1/2
         z-20
         -translate-y-1/2
@@ -158,7 +162,6 @@ export default function RecipeCarousel() {
         border-[#E7E7E7]
         bg-white
         shadow-lg
-        flex
         items-center
         justify-center
         transition-all
