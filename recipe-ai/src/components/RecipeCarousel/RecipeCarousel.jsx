@@ -78,7 +78,7 @@ export default function RecipeCarousel() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative sm:px-14">
 
       {/* Left Arrow */}
 
@@ -88,7 +88,7 @@ export default function RecipeCarousel() {
         hidden
         sm:flex
         absolute
-        left-[-40px]
+        left-0
         top-1/2
         z-20
         -translate-y-1/2
@@ -151,7 +151,7 @@ export default function RecipeCarousel() {
         hidden
         sm:flex
         absolute
-        right-[-40px]
+        right-0
         top-1/2
         z-20
         -translate-y-1/2

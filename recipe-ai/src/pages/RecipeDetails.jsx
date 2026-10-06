@@ -123,7 +123,7 @@ export default function RecipeDetails() {
           setRecipe((prev) => (prev ? { ...prev, image_url: result.image_url } : prev));
         }
       } catch {
-        // Non-fatal — the "No Image Available" placeholder stays up.
+        // Non-fatal — the fallback stock photo stays up.
       } finally {
         setImageLoading(false);
       }
@@ -416,22 +416,59 @@ export default function RecipeDetails() {
           {/* Steps */}
           <div className="md:col-span-3 md:pl-10">
             <h3 className="text-xl font-bold mb-5 border-b border-cream-300 pb-2">Instructions</h3>
-            <div className="space-y-6">
+            <div className="space-y-8">
               {Array.isArray(recipe.steps) && recipe.steps.map((step, i) => (
                 <div key={i} className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-olive text-white font-bold flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-olive text-white font-bold flex items-center justify-center shrink-0 mt-0.5">
                     {i + 1}
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-ink text-lg">{typeof step === 'string' ? `Step ${i + 1}` : step.title}</h4>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h4 className="font-semibold text-ink text-lg leading-tight">
+                        {typeof step === 'string' ? `Step ${i + 1}` : step.title}
+                      </h4>
+                      {typeof step === 'object' && (step.time || step.heatLevel) && (
+                        <div className="flex gap-2">
+                          {step.time && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-100">
+                              <Clock size={11} /> {step.time}
+                            </span>
+                          )}
+                          {step.heatLevel && step.heatLevel !== 'None' && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                              <Flame size={11} /> {step.heatLevel}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {typeof step === 'object' && step.instructions && (
-                      <ul className="list-disc ml-5 mt-2 space-y-1 text-ink-soft">
+                      <ol className="list-decimal ml-5 mt-1 space-y-2 text-ink-soft text-sm leading-relaxed">
                         {step.instructions.map((inst, idx) => (
                           <li key={idx}>{inst}</li>
                         ))}
-                      </ul>
+                      </ol>
                     )}
-                    {typeof step === 'string' && <p className="mt-1 text-ink-soft">{step}</p>}
+                    {typeof step === 'string' && <p className="mt-1 text-ink-soft text-sm">{step}</p>}
+
+                    {typeof step === 'object' && step.chefTip && (
+                      <div className="mt-3 flex gap-2 rounded-xl bg-olive-soft/60 border border-olive/20 px-3 py-2">
+                        <Sparkles size={14} className="text-olive-dark shrink-0 mt-0.5" />
+                        <p className="text-xs text-olive-dark leading-relaxed">
+                          <span className="font-semibold">Chef tip: </span>{step.chefTip}
+                        </p>
+                      </div>
+                    )}
+
+                    {typeof step === 'object' && step.commonMistakes && (
+                      <div className="mt-2 flex gap-2 rounded-xl bg-rose-50 border border-rose-100 px-3 py-2">
+                        <Ban size={14} className="text-rose-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-rose-600 leading-relaxed">
+                          <span className="font-semibold">Avoid: </span>{step.commonMistakes}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

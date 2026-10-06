@@ -5,6 +5,7 @@ import { understandRecipe } from './recipeUnderstanding.js';
 import { retrieveEvidence } from './evidenceRetrieval.js';
 import { planOptimizations } from './optimizationPlanner.js';
 import { buildRecipeBlueprint } from './recipeArchitect.js';
+import { writeRecipeSteps } from './recipeWriter.js';
 import { reviewRecipeSteps } from './recipeReviewer.js';
 
 dotenv.config();
@@ -13,17 +14,18 @@ dotenv.config();
  * Local fallback recipe generator (runs if Groq API is missing or fails).
  */
 const getFallbackRecipe = (dishName, goals) => {
-  const normalizedDish = dishName.trim().toLowerCase();
+  const cleanedName = dishName.trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const displayName = cleanedName.toLowerCase().startsWith('healthy ') ? cleanedName : `Healthy ${cleanedName}`;
 
   const defaultRecipe = {
-    dish_name: `Healthy ${dishName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
+    dish_name: displayName,
     category: 'Nutritious Twist',
     description: `A wholesome, calorie-conscious remake of traditional ${dishName}, optimized to fit your goals: ${goals.join(', ')}.`,
     calories: 380,
     protein: '22g',
     fiber: '8g',
     fats: '9g',
-    sodium: '480mg',
+    sodium: '370mg',
     cooking_time: '30 mins',
     servings: 2,
     difficulty: 'Easy',
@@ -186,35 +188,50 @@ export const generateHealthyRecipeText = async (inputs) => {
       // PHASE 2: MULTI-AGENT GENERATION
       // -------------------------------------------------------------
       
-      // Agent 1: Combined Recipe Generation (Blueprint & Steps)
-      logger.info(`Phase 2: Invoking Combined Recipe Generation (Blueprint & Steps)`);
-      const combinedRecipe = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding);
-      if (combinedRecipe && combinedRecipe.token_metrics) {
-        totalPromptTokens += combinedRecipe.token_metrics.prompt_tokens || 0;
-        totalCompletionTokens += combinedRecipe.token_metrics.completion_tokens || 0;
+      // Agent 1: Recipe Blueprint (metadata + step titles only)
+      logger.info(`Phase 2: Invoking Recipe Architect (blueprint + step titles)`);
+      const blueprint = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding);
+      if (blueprint && blueprint.token_metrics) {
+        totalPromptTokens += blueprint.token_metrics.prompt_tokens || 0;
+        totalCompletionTokens += blueprint.token_metrics.completion_tokens || 0;
       }
 
+      // Normalize steps to title strings in case architect returned full objects
+      if (Array.isArray(blueprint.steps)) {
+        blueprint.steps = blueprint.steps.map((s, idx) =>
+          typeof s === 'string' ? s : (s.title || `Step ${idx + 1}`)
+        );
+      }
+
+      // Agent 2: Generate each step individually for full detail
+      logger.info(`Phase 2: Invoking Recipe Writer to generate ${(blueprint.steps || []).length} detailed steps`);
+      const detailedSteps = await writeRecipeSteps(dishName, blueprint, inputs, optimizationPlan, evidence.summary);
+
       // Assemble draft recipe object for review
+      const rawDishName = blueprint.dish_name || `Healthy ${dishName}`;
+      const deduplicatedDishName = /^healthy\s+healthy\s+/i.test(rawDishName)
+        ? rawDishName.replace(/^healthy\s+/i, '')
+        : rawDishName;
       const draftRecipe = {
-        dish_name: combinedRecipe.dish_name || `Healthy ${dishName}`,
-        category: combinedRecipe.category || 'Nutritious Twist',
-        description: combinedRecipe.description || 'A healthy remake optimized for your dietary goals.',
-        calories: combinedRecipe.calories || 380,
-        protein: combinedRecipe.protein || '20g',
-        fiber: combinedRecipe.fiber || '8g',
-        fats: combinedRecipe.fats || '10g',
-        sodium: combinedRecipe.sodium || '400mg',
-        cooking_time: combinedRecipe.cookTime || combinedRecipe.cooking_time || '30 mins',
-        servings: combinedRecipe.servings || 2,
-        difficulty: combinedRecipe.difficulty || 'Easy',
-        cuisine: combinedRecipe.cuisine || recipeUnderstanding.cuisine,
-        diet_type: combinedRecipe.diet_type || 'Vegetarian',
-        meal_type: combinedRecipe.meal_type || 'Dinner',
+        dish_name: deduplicatedDishName,
+        category: blueprint.category || 'Nutritious Twist',
+        description: blueprint.description || 'A healthy remake optimized for your dietary goals.',
+        calories: blueprint.calories || 380,
+        protein: blueprint.protein || '20g',
+        fiber: blueprint.fiber || '8g',
+        fats: blueprint.fats || '10g',
+        sodium: blueprint.sodium || '400mg',
+        cooking_time: blueprint.cookTime || blueprint.cooking_time || '30 mins',
+        servings: blueprint.servings || 2,
+        difficulty: blueprint.difficulty || 'Easy',
+        cuisine: blueprint.cuisine || recipeUnderstanding.cuisine,
+        diet_type: blueprint.diet_type || 'Vegetarian',
+        meal_type: blueprint.meal_type || 'Dinner',
         best_for: goals.join(', '),
-        ingredients: (combinedRecipe.ingredients || []).map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty })),
-        steps: combinedRecipe.steps || [],
+        ingredients: (blueprint.ingredients || []).map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty })),
+        steps: detailedSteps,
         optimization_plan: optimizationPlan,
-        healthier_explanation: combinedRecipe.description
+        healthier_explanation: blueprint.description
       };
 
       logger.info(`Phase 3: Invoking Agent 3 (Recipe Reviewer) for editorial critique`);

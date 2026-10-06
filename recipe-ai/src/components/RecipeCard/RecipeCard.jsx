@@ -35,7 +35,15 @@ export default function RecipeCard({
   saved = false,
   priority = false,
 }) {
-  const [imageLoaded, setImageLoaded] = useState(false);
+  // Track which src has actually finished loading rather than a plain
+  // boolean — a card stays mounted (same recipe.id key) across list
+  // refreshes, and its `image` can change underneath it (e.g. background AI
+  // generation resolves and swaps the fallback stock photo for the real
+  // one). Comparing against the current `image` prop means a new src is
+  // correctly treated as "not loaded yet" without needing an effect to
+  // reset a separate boolean.
+  const [loadedSrc, setLoadedSrc] = useState(null);
+  const imageLoaded = loadedSrc === image;
 
   return (
     <motion.article
@@ -129,7 +137,7 @@ export default function RecipeCard({
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
           decoding="async"
-          onLoad={() => setImageLoaded(true)}
+          onLoad={() => setLoadedSrc(image)}
           className={`
           h-full
           w-full
