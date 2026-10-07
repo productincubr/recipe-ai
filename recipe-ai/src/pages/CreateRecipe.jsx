@@ -153,8 +153,10 @@ export default function CreateRecipe() {
       const data = await response.json();
 
       if (response.ok) {
-        navigate(`/recipe/${data.id || data.recipe?.id || data.generated_recipe_id}`, {
+        const recipeId = String(data.id || data.recipe?.id || data.generated_recipe_id);
+        navigate(`/recipe/${recipeId}`, {
           state: {
+            recipeId,
             preferences: {
               dish: seedDish,
               goals,

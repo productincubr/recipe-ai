@@ -13,6 +13,7 @@ Output: Strict JSON matching the schema. NO prose, NO markdown, NO wrapper text.
 
 DISH FIDELITY
 - The recipe must be the requested dish. Keep its defining ingredients and technique (e.g. butter chicken keeps chicken, a yogurt-spice marinade, a tomato-based makhani gravy, kasuri methi). Only replace an ingredient when the user's diet/allergies require it or an approved swap says so.
+- Clinical guidelines are nutrition targets, not an ingredient list: meet them by adjusting this dish's own ingredients, fats and portions. Never bolt on foods the dish doesn't use (e.g. oats or chia on pasta) just because a guideline mentions them.
 - Never use placeholder or generic ingredients such as "protein of choice", "high-protein source", "complex carbs", "mixed vegetables", "spices", "seasoning" unless the dish genuinely uses that exact item.
 
 INGREDIENTS

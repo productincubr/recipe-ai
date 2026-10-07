@@ -114,10 +114,11 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals, preferenc
     // 1. Handle image upload (Supabase Storage vs Base64 fallback)
     const imageUrl = await uploadImageToStorage(recipeData.image_url, recipeData.dish_name);
     
-    // 2. Insert into public.recipes
+    // 2. Insert into public.recipes. No placeholder defaults: a generic value
+    // (e.g. diet_type "Vegetarian") would contradict the generated recipe.
     const baseRecipeRow = {
       dish_name: recipeData.dish_name,
-      category: recipeData.category || 'Comfort Food',
+      category: recipeData.category || null,
       description: recipeData.description,
       calories: recipeData.calories,
       protein: recipeData.protein,
@@ -125,12 +126,12 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals, preferenc
       fats: recipeData.fats,
       sodium: recipeData.sodium,
       cooking_time: recipeData.cooking_time,
-      servings: recipeData.servings || 2,
-      difficulty: recipeData.difficulty || 'Easy',
-      cuisine: recipeData.cuisine || 'Classic',
-      diet_type: recipeData.diet_type || 'Vegetarian',
-      meal_type: recipeData.meal_type || 'Lunch, Dinner',
-      best_for: recipeData.best_for || 'Healthy eating',
+      servings: recipeData.servings || null,
+      difficulty: recipeData.difficulty || null,
+      cuisine: recipeData.cuisine || null,
+      diet_type: recipeData.diet_type || null,
+      meal_type: recipeData.meal_type || null,
+      best_for: recipeData.best_for || null,
       ingredients: recipeData.ingredients,
       steps: recipeData.steps,
       healthier_explanation: recipeData.healthier_explanation,
@@ -149,7 +150,7 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals, preferenc
 
     if (recipeError && (recipeError.code === '42703' || recipeError.code === 'PGRST204' || recipeError.message.includes('column'))) {
       // Older DB not yet migrated (005) with optimization_plan/details columns — retry without them.
-      logger.warn(`Optional recipe columns missing (${recipeError.message}). Run migrations/005_add_recipe_details.sql. Retrying insert without them.`);
+      logger.error(`recipes.details/optimization_plan columns missing (${recipeError.message}). Equipment, substitutions, storage, allergens and dietary tags will NOT be saved until migrations/005_add_recipe_details.sql is run. Retrying insert without them.`);
       ({ data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .insert(baseRecipeRow)

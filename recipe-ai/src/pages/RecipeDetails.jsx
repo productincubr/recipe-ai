@@ -36,17 +36,17 @@ const NON_VEG_KEYWORDS = [
 ];
 
 function isNonVegRecipe(recipe) {
+  if (/non[\s-]?veg/i.test(recipe.diet_type || '')) return true;
   const text = [
     recipe.dish_name,
-    recipe.category,
-    recipe.diet_type,
     ...(Array.isArray(recipe.ingredients) ? recipe.ingredients.map((i) => i.name) : []),
   ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
 
-  return NON_VEG_KEYWORDS.some((keyword) => new RegExp(`\\b${keyword}`).test(text));
+  // Whole words only, so "eggplant" or "eggless" don't count as egg.
+  return NON_VEG_KEYWORDS.some((keyword) => new RegExp(`\\b${keyword}(s|es)?\\b`).test(text));
 }
 
 function VegNonVegTag({ nonVeg }) {
@@ -101,7 +101,9 @@ export default function RecipeDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const preferences = location.state?.preferences;
+  // Router state is only trusted for the recipe it was created with.
+  const navState = location.state?.recipeId === id ? location.state : null;
+  const preferences = navState?.preferences;
   const { savedIds, toggleSave } = useSavedRecipes();
 
   const [recipe, setRecipe] = useState(null);
@@ -113,8 +115,22 @@ export default function RecipeDetails() {
   const [downloading, setDownloading] = useState(false);
   const cardRef = useRef(null);
 
+  // Clear the previous recipe as soon as the id changes so its content is never
+  // shown (or mixed) under the next recipe while that one loads.
+  const [shownId, setShownId] = useState(id);
+  if (shownId !== id) {
+    setShownId(id);
+    setRecipe(null);
+    setError(null);
+    setLoading(true);
+    setImageLoading(false);
+  }
+
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://recipe-final-zjcl.onrender.com';
+    // Responses for a recipe the user has already navigated away from must not
+    // land on the one now on screen.
+    let stale = false;
 
     const generateImage = async (recipeId, dishName) => {
       setImageLoading(true);
@@ -125,13 +141,13 @@ export default function RecipeDetails() {
           body: JSON.stringify({ recipeId, dishName }),
         });
         const result = await res.json();
-        if (res.ok && result.image_url) {
-          setRecipe((prev) => (prev ? { ...prev, image_url: result.image_url } : prev));
+        if (!stale && res.ok && result.image_url) {
+          setRecipe((prev) => (prev && prev.id === recipeId ? { ...prev, image_url: result.image_url } : prev));
         }
       } catch {
         // Non-fatal — the fallback stock photo stays up.
       } finally {
-        setImageLoading(false);
+        if (!stale) setImageLoading(false);
       }
     };
 
@@ -139,23 +155,27 @@ export default function RecipeDetails() {
       try {
         const res = await fetch(`${baseUrl}/api/recipes/${id}`);
         const result = await res.json();
+        if (stale) return;
 
         if (res.ok && result.success) {
           setRecipe(result.data);
           if (!result.data.image_url && result.data.dish_name) {
-            generateImage(result.data.id ?? id, result.data.dish_name);
+            generateImage(result.data.id, result.data.dish_name);
           }
         } else {
           setError(result.error || 'Recipe not found');
         }
       } catch {
-        setError('Network error. Failed to load recipe.');
+        if (!stale) setError('Network error. Failed to load recipe.');
       } finally {
-        setLoading(false);
+        if (!stale) setLoading(false);
       }
     };
 
     fetchRecipe();
+    return () => {
+      stale = true;
+    };
   }, [id]);
 
   const saved = savedIds.has(id);
@@ -221,7 +241,7 @@ export default function RecipeDetails() {
 
   const badges = buildBadges(preferences, recipe);
   const details = recipe.details || {};
-  const optimizationPlan = recipe.optimization_plan || location.state?.optimizationPlan;
+  const optimizationPlan = recipe.optimization_plan || navState?.optimizationPlan;
   const swaps = optimizationPlan?.swaps || [];
   const methodAdjustments = optimizationPlan?.methodAdjustments || [];
 
@@ -279,9 +299,11 @@ export default function RecipeDetails() {
         <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
           {/* Left Title & Meta Info */}
           <div className="flex-1">
-            <span className="inline-block px-3 py-1 bg-olive-soft text-olive-deep rounded-full text-xs font-semibold mb-3 uppercase tracking-wider">
-              {recipe.category || 'GRAINS'}
-            </span>
+            {recipe.category && (
+              <span className="inline-block px-3 py-1 bg-olive-soft text-olive-deep rounded-full text-xs font-semibold mb-3 uppercase tracking-wider">
+                {recipe.category}
+              </span>
+            )}
             <h1 className="text-4xl font-serif font-bold text-ink leading-tight">
               {recipe.dish_name}
               <VegNonVegTag nonVeg={isNonVegRecipe(recipe)} />

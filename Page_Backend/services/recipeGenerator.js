@@ -57,6 +57,16 @@ const findCompletenessProblems = (recipe, recipeUnderstanding) => {
   const problems = [];
   const { ingredients, steps } = recipe;
 
+  const requiredText = ['dish_name', 'description', 'healthier_explanation', 'category', 'cuisine', 'diet_type', 'difficulty'];
+  const missingFields = requiredText.filter(f => typeof recipe[f] !== 'string' || !recipe[f].trim());
+  if (!Number(recipe.servings)) missingFields.push('servings');
+  if (missingFields.length > 0) {
+    problems.push(`Missing required fields: ${missingFields.join(', ')}. Fill each one for THIS dish.`);
+  }
+  if (recipe.healthier_explanation && recipe.healthier_explanation.trim() === recipe.description.trim()) {
+    problems.push('"healthier_explanation" repeats the description; explain the specific ingredient and method changes made in this recipe.');
+  }
+
   if (ingredients.length < MIN_INGREDIENTS) {
     problems.push(`Only ${ingredients.length} ingredients listed; list every ingredient including spices, oil, salt and garnish.`);
   }
@@ -93,6 +103,14 @@ const findCompletenessProblems = (recipe, recipeUnderstanding) => {
     const dietCheck = validateDietModule({ ingredients, steps: [] }, diet);
     if (!dietCheck.isValid) {
       problems.push(`Dietary tag "${diet}" is wrong: ${dietCheck.errors.join('; ')}. Fix the tag or the ingredients.`);
+    }
+  }
+  const dietType = (recipe.diet_type || '').toLowerCase();
+  const claimedDiet = /vegan/.test(dietType) ? 'Vegan' : /^vegetarian|lacto|ovo/.test(dietType) ? 'Vegetarian' : null;
+  if (claimedDiet) {
+    const dietCheck = validateDietModule({ ingredients, steps: [] }, claimedDiet);
+    if (!dietCheck.isValid) {
+      problems.push(`diet_type "${recipe.diet_type}" contradicts the ingredients: ${dietCheck.errors.join('; ')}.`);
     }
   }
 
@@ -150,11 +168,12 @@ const buildDetails = (bp) => ({
   proteinBoost: bp.proteinBoost || ''
 });
 
-const toDraftRecipe = (bp, dishName, goals, recipeUnderstanding, optimizationPlan) => {
-  const rawDishName = bp.dish_name || `Healthy ${dishName}`;
+// Every field comes from this one model response; nothing is filled from templates
+// or other recipes, so missing fields are caught by findCompletenessProblems instead.
+const toDraftRecipe = (bp, goals, optimizationPlan) => {
   return {
-    dish_name: rawDishName.replace(/^(healthy\s+)+/i, 'Healthy '),
-    category: bp.category || 'Nutritious Twist',
+    dish_name: (bp.dish_name || '').replace(/^(healthy\s+)+/i, 'Healthy '),
+    category: bp.category || '',
     description: bp.description || '',
     calories: bp.calories,
     protein: bp.protein,
@@ -162,9 +181,9 @@ const toDraftRecipe = (bp, dishName, goals, recipeUnderstanding, optimizationPla
     fats: bp.fats,
     sodium: bp.sodium,
     cooking_time: bp.totalTime || bp.cookTime || '',
-    servings: bp.servings || 2,
-    difficulty: bp.difficulty || 'Easy',
-    cuisine: bp.cuisine || recipeUnderstanding.cuisine,
+    servings: bp.servings,
+    difficulty: bp.difficulty || '',
+    cuisine: bp.cuisine || '',
     diet_type: bp.diet_type || '',
     meal_type: bp.meal_type || '',
     best_for: goals.join(', '),
@@ -218,7 +237,7 @@ export const generateHealthyRecipeText = async (inputs) => {
       }
       addTokens(blueprint.token_metrics);
 
-      const draftRecipe = toDraftRecipe(blueprint, dishName, goals, recipeUnderstanding, optimizationPlan);
+      const draftRecipe = toDraftRecipe(blueprint, goals, optimizationPlan);
       draftRecipe.token_metrics = { model_used: blueprint.token_metrics?.model_used };
 
       const completenessProblems = findCompletenessProblems(draftRecipe, recipeUnderstanding);
