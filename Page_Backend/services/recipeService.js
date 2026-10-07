@@ -139,13 +139,17 @@ export const saveRecipe = async (recipeData, dishQuery, selectedGoals, preferenc
 
     let { data: recipe, error: recipeError } = await supabase
       .from('recipes')
-      .insert({ ...baseRecipeRow, optimization_plan: recipeData.optimization_plan || null })
+      .insert({
+        ...baseRecipeRow,
+        optimization_plan: recipeData.optimization_plan || null,
+        details: recipeData.details || null
+      })
       .select()
       .single();
 
-    if (recipeError && (recipeError.code === '42703' || recipeError.message.includes('column'))) {
-      // Older DB not yet migrated with an optimization_plan column — retry without it.
-      logger.warn('optimization_plan column not found in database. Retrying insert without it.');
+    if (recipeError && (recipeError.code === '42703' || recipeError.code === 'PGRST204' || recipeError.message.includes('column'))) {
+      // Older DB not yet migrated (005) with optimization_plan/details columns — retry without them.
+      logger.warn(`Optional recipe columns missing (${recipeError.message}). Run migrations/005_add_recipe_details.sql. Retrying insert without them.`);
       ({ data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .insert(baseRecipeRow)

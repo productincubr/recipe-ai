@@ -1,6 +1,7 @@
 import axios from 'axios';
 import https from 'https';
 import logger from '../config/logger.js';
+import { GROQ_FAST_MODEL } from '../config/groqModels.js';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -16,7 +17,7 @@ const httpsAgent = new https.Agent({
  */
 export const reviewRecipe = async (recipeDraft, healthProfile, evidenceSummary) => {
   const apiKey = process.env.GROQ_API_KEY;
-  const modelName = 'llama-3.1-8b-instant';
+  const modelName = GROQ_FAST_MODEL;
 
   const defaultReview = {
     safetyConfidence: 90,
@@ -92,7 +93,7 @@ Evaluate safety compliance, flag any potential allergen leaks, and assign a weig
       return JSON.parse(content);
     }
   } catch (error) {
-    logger.error('AI Reviewer service failed:', { error: error.message });
+    logger.error('AI Reviewer service failed:', { error: error.response?.data?.error?.message || error.message });
   }
 
   return defaultReview;

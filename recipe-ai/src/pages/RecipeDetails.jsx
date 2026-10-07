@@ -17,6 +17,12 @@ import {
   Star,
   ArrowRightLeft,
   Wrench,
+  Shuffle,
+  Refrigerator,
+  HeartPulse,
+  Users,
+  ChefHat,
+  Timer,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
@@ -214,6 +220,7 @@ export default function RecipeDetails() {
   if (error || !recipe) return <div className="p-8 text-center text-red-500">{error}</div>;
 
   const badges = buildBadges(preferences, recipe);
+  const details = recipe.details || {};
   const optimizationPlan = recipe.optimization_plan || location.state?.optimizationPlan;
   const swaps = optimizationPlan?.swaps || [];
   const methodAdjustments = optimizationPlan?.methodAdjustments || [];
@@ -279,11 +286,24 @@ export default function RecipeDetails() {
               {recipe.dish_name}
               <VegNonVegTag nonVeg={isNonVegRecipe(recipe)} />
             </h1>
+            {details.subtitle && <p className="text-olive-dark font-medium mt-2">{details.subtitle}</p>}
             <p className="text-ink-soft mt-3 text-lg leading-relaxed">{recipe.description}</p>
 
             <div className="flex flex-wrap gap-3 mt-6">
               {recipe.cooking_time && (
                 <StatPill icon={Clock} iconColor="text-amber" value={recipe.cooking_time} caption="Ready in" />
+              )}
+              {details.prepTime && (
+                <StatPill icon={Timer} iconColor="text-sky-500" value={details.prepTime} caption="Prep" />
+              )}
+              {details.cookTime && (
+                <StatPill icon={Flame} iconColor="text-orange-500" value={details.cookTime} caption="Cook" />
+              )}
+              {recipe.servings && (
+                <StatPill icon={Users} iconColor="text-olive-dark" value={recipe.servings} caption="Servings" />
+              )}
+              {recipe.difficulty && (
+                <StatPill icon={ChefHat} iconColor="text-purple-500" value={recipe.difficulty} caption="Difficulty" />
               )}
               {recipe.calories && (
                 <StatPill icon={Flame} iconColor="text-amber" value={`${recipe.calories} kcal`} caption="Per Serving" />
@@ -336,6 +356,8 @@ export default function RecipeDetails() {
             </div>
           </div>
         )}
+
+        <NutritionPanel recipe={recipe} details={details} />
 
         {recipe.healthier_explanation && (
           <div className="bg-cream-100 border border-cream-300 rounded-2xl p-5 mb-8 flex gap-4">
@@ -402,18 +424,50 @@ export default function RecipeDetails() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-y-10 md:gap-y-0 mt-10 md:divide-x md:divide-cream-300">
           {/* Ingredients */}
           <div className="md:col-span-2 md:pr-10">
-            <h3 className="text-xl font-bold mb-5 border-b border-cream-300 pb-2">Ingredients</h3>
-            <ul className="divide-y divide-cream-200">
-              {Array.isArray(recipe.ingredients) && recipe.ingredients.map((ing, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-4 py-3 text-sm">
-                  <span className="text-ink font-medium">
-                    {ing.name}
-                    {ing.prep && <span className="block text-xs font-normal text-ink-muted mt-0.5">{ing.prep}</span>}
-                  </span>
-                  <span className="text-ink-muted text-right shrink-0 whitespace-nowrap">{ing.qty || ing.quantity}</span>
-                </li>
-              ))}
-            </ul>
+            <h3 className="text-xl font-bold mb-5 border-b border-cream-300 pb-2">
+              Ingredients
+              {recipe.servings && (
+                <span className="ml-2 text-sm font-normal text-ink-muted">for {recipe.servings} servings</span>
+              )}
+            </h3>
+            {groupIngredients(recipe.ingredients).map(({ group, items }) => (
+              <div key={group || 'all'} className="mb-4 last:mb-0">
+                {group && (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-olive-dark mt-2">{group}</p>
+                )}
+                <ul className="divide-y divide-cream-200">
+                  {items.map((ing, i) => (
+                    <li key={i} className="flex items-baseline justify-between gap-4 py-3 text-sm">
+                      <span className="text-ink font-medium">
+                        {ing.name}
+                        {ing.prep && <span className="block text-xs font-normal text-ink-muted mt-0.5">{ing.prep}</span>}
+                      </span>
+                      <span className="text-ink-muted text-right shrink-0 max-w-[45%]">{ing.qty || ing.quantity}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+
+            {details.equipment?.length > 0 && (
+              <div className="mt-8">
+                <h4 className="flex items-center gap-2 font-semibold text-ink mb-2">
+                  <Wrench size={16} className="text-ink-muted" /> Equipment
+                </h4>
+                <ul className="list-disc ml-5 space-y-1 text-sm text-ink-soft">
+                  {details.equipment.map((item, i) => <li key={i}>{item}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {details.preparationNotes?.length > 0 && (
+              <div className="mt-6 rounded-2xl bg-cream-100 border border-cream-300 p-4">
+                <h4 className="font-semibold text-ink mb-2 text-sm">Before you start</h4>
+                <ul className="list-disc ml-5 space-y-1 text-sm text-ink-soft">
+                  {details.preparationNotes.map((note, i) => <li key={i}>{note}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Steps */}
@@ -479,11 +533,125 @@ export default function RecipeDetails() {
           </div>
         </div>
 
+        <RecipeExtras details={details} />
+
         <div className="mt-10 flex items-center justify-center gap-2 rounded-2xl border border-cream-300 bg-olive-soft/50 py-4 px-6 text-center text-sm font-medium text-olive-dark">
           <Star size={16} className="fill-current" />
           Made just for you — healthy, delicious & perfect for your goals!
         </div>
       </div>
+    </div>
+  );
+}
+
+function groupIngredients(ingredients) {
+  if (!Array.isArray(ingredients)) return [];
+  const groups = [];
+  ingredients.forEach((ing) => {
+    const group = (ing.group || '').trim();
+    const existing = groups.find((g) => g.group === group);
+    if (existing) existing.items.push(ing);
+    else groups.push({ group, items: [ing] });
+  });
+  // A single (or "Main"-only) group needs no heading.
+  if (groups.length === 1) groups[0].group = '';
+  return groups;
+}
+
+function NutritionPanel({ recipe, details }) {
+  const items = [
+    ['Calories', recipe.calories ? `${recipe.calories} kcal` : ''],
+    ['Protein', recipe.protein],
+    ['Carbs', details.nutrition?.carbohydrates],
+    ['Fat', recipe.fats],
+    ['Fiber', recipe.fiber],
+    ['Sugar', details.nutrition?.sugar],
+    ['Sodium', recipe.sodium],
+  ].filter(([, value]) => value);
+
+  if (items.length === 0) return null;
+  return (
+    <div className="mb-8">
+      <p className="text-sm font-semibold text-olive-dark mb-3">Nutrition per serving</p>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+        {items.map(([label, value]) => (
+          <div key={label} className="rounded-2xl bg-cream-100 px-3 py-3 text-center">
+            <p className="text-sm font-semibold text-ink">{value}</p>
+            <p className="text-[11px] uppercase tracking-wide text-ink-muted mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListCard({ title, icon: Icon, items }) {
+  if (!items?.length) return null;
+  return (
+    <div className="rounded-2xl border border-cream-300 bg-white p-5">
+      <h4 className="flex items-center gap-2 font-semibold text-ink mb-3">
+        <Icon size={16} className="text-olive-dark" /> {title}
+      </h4>
+      <ul className="list-disc ml-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
+        {items.map((item, i) => <li key={i}>{item}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function RecipeExtras({ details }) {
+  const substitutions = details.substitutions || [];
+  const hasTags = details.allergens?.length > 0 || details.dietaryTags?.length > 0;
+  const cards = [
+    { title: 'Chef tips', icon: Sparkles, items: details.chefTips },
+    { title: 'Variations', icon: Shuffle, items: details.variations },
+    { title: 'Serving suggestions', icon: UtensilsCrossed, items: details.servingSuggestions },
+    { title: 'Storage', icon: Refrigerator, items: details.storageInstructions },
+    { title: 'Reheating', icon: Flame, items: details.reheatingInstructions },
+    { title: 'Health benefits', icon: HeartPulse, items: details.healthBenefits },
+    { title: 'Protein boost', icon: Dumbbell, items: details.proteinBoost ? [details.proteinBoost] : [] },
+  ].filter((card) => card.items?.length);
+
+  if (cards.length === 0 && substitutions.length === 0 && !hasTags) return null;
+
+  return (
+    <div className="mt-12 pt-10 border-t border-cream-300 space-y-6">
+      {substitutions.length > 0 && (
+        <div>
+          <h3 className="flex items-center gap-2 text-xl font-bold mb-4">
+            <ArrowRightLeft size={18} className="text-olive-dark" /> Substitutions
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {substitutions.map((sub, i) => (
+              <div key={i} className="rounded-2xl border border-cream-300 bg-cream-100/50 p-4 text-sm">
+                <p className="font-semibold text-ink">
+                  {sub.ingredient} <span className="text-ink-muted font-normal">→</span> {sub.substitute}
+                </p>
+                {sub.note && <p className="mt-1 text-ink-soft leading-relaxed">{sub.note}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cards.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {cards.map((card) => <ListCard key={card.title} {...card} />)}
+        </div>
+      )}
+
+      {hasTags && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {details.dietaryTags?.map((tag) => (
+            <span key={`tag-${tag}`} className="rounded-full bg-olive-soft px-3 py-1 font-medium text-olive-deep">{tag}</span>
+          ))}
+          {details.allergens?.length > 0 && (
+            <span className="rounded-full bg-rose-50 border border-rose-100 px-3 py-1 font-medium text-rose-600">
+              Contains: {details.allergens.join(', ')}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

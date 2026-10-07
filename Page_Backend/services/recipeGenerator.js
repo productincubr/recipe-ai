@@ -1,6 +1,6 @@
 import logger from '../config/logger.js';
 import dotenv from 'dotenv';
-import { validateGeneratedRecipe } from './recipeValidator.js';
+import { validateGeneratedRecipe, validateDishIdentityModule, validateDietModule } from './recipeValidator.js';
 import { understandRecipe } from './recipeUnderstanding.js';
 import { retrieveEvidence } from './evidenceRetrieval.js';
 import { planOptimizations } from './optimizationPlanner.js';
@@ -13,9 +13,24 @@ const HEALTH_NOTE = "Health Note: These recipes are intended for general wellnes
 
 const MAX_ATTEMPTS = 3;
 const MIN_INGREDIENTS = 6;
-const MIN_STEPS = 5;
-const MIN_INSTRUCTIONS_PER_STEP = 2;
+const MIN_STEPS = 3;
+const MIN_TOTAL_INSTRUCTIONS = 8;
+const MIN_INSTRUCTIONS_PER_STEP = 1;
 const MAX_UNUSED_INGREDIENTS = 2;
+
+const MIN_CALORIES = 80;
+const MAX_CALORIES = 1500;
+
+const PLACEHOLDER_PATTERNS = [
+  /protein (source|of choice)/i,
+  /high-protein (paneer, tofu|source)/i,
+  /complex carbs?/i,
+  /(mixed|seasonal) (fresh )?(seasonal )?vegetables/i,
+  /\bof (your )?choice\b/i,
+  /^spices$/i,
+  /^seasoning$/i
+];
+const VAGUE_QUANTITY = /^(some|a few|as needed|as required|handful)$/i;
 
 const NAME_FILLER_WORDS = new Set(['fresh', 'thick', 'low', 'fat', 'low-fat', 'small', 'medium', 'large', 'chopped', 'powder', 'whole', 'ground', 'optional', 'with']);
 
@@ -38,28 +53,53 @@ const isIngredientUsed = (ingredientName, text) => {
  * Returns a list of human-readable problems that make the recipe incomplete.
  * The list is fed back to the model on the next attempt.
  */
-const findCompletenessProblems = (recipe) => {
+const findCompletenessProblems = (recipe, recipeUnderstanding) => {
   const problems = [];
   const { ingredients, steps } = recipe;
 
   if (ingredients.length < MIN_INGREDIENTS) {
     problems.push(`Only ${ingredients.length} ingredients listed; list every ingredient including spices, oil, salt and garnish.`);
   }
-  const missingQty = ingredients.filter(i => !i.qty).map(i => i.name);
+  const missingQty = ingredients.filter(i => !i.qty || VAGUE_QUANTITY.test(i.qty.trim())).map(i => i.name);
   if (missingQty.length > 0) {
-    problems.push(`Missing quantities for: ${missingQty.join(', ')}.`);
+    problems.push(`Missing or vague quantities for: ${missingQty.join(', ')}.`);
   }
-  if (steps.length < MIN_STEPS) {
-    problems.push(`Only ${steps.length} steps; write 6-10 steps covering prep to serving.`);
+  const placeholders = ingredients.filter(i => PLACEHOLDER_PATTERNS.some(p => p.test(i.name))).map(i => i.name);
+  if (placeholders.length > 0) {
+    problems.push(`Replace generic placeholder ingredients with the real ones this dish uses: ${placeholders.join(', ')}.`);
+  }
+  const totalInstructions = steps.reduce((sum, s) => sum + s.instructions.length, 0);
+  if (steps.length < MIN_STEPS || totalInstructions < MIN_TOTAL_INSTRUCTIONS) {
+    problems.push(`The method is too short (${steps.length} steps, ${totalInstructions} instructions); write every step from prep to serving with full detail.`);
   }
   const thinSteps = steps.filter(s => s.instructions.length < MIN_INSTRUCTIONS_PER_STEP).map(s => s.title);
   if (thinSteps.length > 0) {
-    problems.push(`These steps need 2-4 detailed instructions each: ${thinSteps.join(', ')}.`);
+    problems.push(`These steps have no instructions: ${thinSteps.join(', ')}.`);
   }
   const text = stepsText(steps);
   const unused = ingredients.filter(i => !isIngredientUsed(i.name, text)).map(i => i.name);
   if (unused.length > MAX_UNUSED_INGREDIENTS) {
     problems.push(`These ingredients are listed but never used in the method: ${unused.join(', ')}.`);
+  }
+  const calories = Number(recipe.calories);
+  if (!calories || calories < MIN_CALORIES || calories > MAX_CALORIES) {
+    problems.push(`Calories per serving (${recipe.calories}) are missing or unrealistic; recalculate from the quantities.`);
+  }
+
+  // Ingredients only: steps may mention optional sides ("serve with roti") that aren't part of the dish.
+  const tags = recipe.details.dietaryTags.map(t => t.toLowerCase().replace(/-/g, ' '));
+  for (const diet of ['Vegan', 'Vegetarian', 'Gluten Free', 'Dairy Free']) {
+    if (!tags.includes(diet.toLowerCase())) continue;
+    const dietCheck = validateDietModule({ ingredients, steps: [] }, diet);
+    if (!dietCheck.isValid) {
+      problems.push(`Dietary tag "${diet}" is wrong: ${dietCheck.errors.join('; ')}. Fix the tag or the ingredients.`);
+    }
+  }
+
+  const primary = recipeUnderstanding?.primaryIngredients || [];
+  const identity = validateDishIdentityModule(recipe, primary, recipe.optimization_plan);
+  if (primary.length > 0 && identity.missingCount > Math.floor(primary.length / 2)) {
+    problems.push(`The recipe no longer resembles "${recipe.dish_name}": most of its defining ingredients (${primary.join(', ')}) are missing.`);
   }
 
   return problems;
@@ -79,14 +119,36 @@ const normalizeSteps = (steps) =>
       commonMistakes: s.commonMistakes || ''
     }));
 
-const buildHealthierExplanation = (bp) =>
-  [
-    bp.healthier_explanation,
-    bp.proteinBoost ? `Protein boost: ${bp.proteinBoost}` : '',
-    bp.servingSuggestion ? `Serve with: ${bp.servingSuggestion}` : ''
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+const stringList = (value) =>
+  (Array.isArray(value) ? value : [])
+    .filter(v => typeof v === 'string' && v.trim())
+    .map(v => v.trim());
+
+const buildDetails = (bp) => ({
+  subtitle: bp.subtitle || '',
+  prepTime: bp.prepTime || '',
+  cookTime: bp.cookTime || '',
+  totalTime: bp.totalTime || '',
+  spiceLevel: bp.spiceLevel || '',
+  nutrition: {
+    carbohydrates: bp.carbohydrates || '',
+    sugar: bp.sugar || ''
+  },
+  equipment: stringList(bp.equipment),
+  preparationNotes: stringList(bp.preparationNotes),
+  chefTips: stringList(bp.chefTips),
+  substitutions: (Array.isArray(bp.substitutions) ? bp.substitutions : [])
+    .filter(s => s && s.ingredient && s.substitute)
+    .map(s => ({ ingredient: s.ingredient, substitute: s.substitute, note: s.note || '' })),
+  variations: stringList(bp.variations),
+  servingSuggestions: stringList(bp.servingSuggestions),
+  storageInstructions: stringList(bp.storageInstructions),
+  reheatingInstructions: stringList(bp.reheatingInstructions),
+  allergens: stringList(bp.allergens),
+  dietaryTags: stringList(bp.dietaryTags),
+  healthBenefits: stringList(bp.healthBenefits),
+  proteinBoost: bp.proteinBoost || ''
+});
 
 const toDraftRecipe = (bp, dishName, goals, recipeUnderstanding, optimizationPlan) => {
   const rawDishName = bp.dish_name || `Healthy ${dishName}`;
@@ -108,10 +170,11 @@ const toDraftRecipe = (bp, dishName, goals, recipeUnderstanding, optimizationPla
     best_for: goals.join(', '),
     ingredients: (bp.ingredients || [])
       .filter(ing => ing && ing.name)
-      .map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty || '', prep: ing.prep || '' })),
+      .map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty || '', prep: ing.prep || '', group: ing.group || '' })),
     steps: normalizeSteps(bp.steps),
     optimization_plan: optimizationPlan,
-    healthier_explanation: buildHealthierExplanation(bp)
+    healthier_explanation: bp.healthier_explanation || '',
+    details: buildDetails(bp)
   };
 };
 
@@ -158,7 +221,7 @@ export const generateHealthyRecipeText = async (inputs) => {
       const draftRecipe = toDraftRecipe(blueprint, dishName, goals, recipeUnderstanding, optimizationPlan);
       draftRecipe.token_metrics = { model_used: blueprint.token_metrics?.model_used };
 
-      const completenessProblems = findCompletenessProblems(draftRecipe);
+      const completenessProblems = findCompletenessProblems(draftRecipe, recipeUnderstanding);
       if (completenessProblems.length > 0) {
         logger.warn(`Attempt ${attempt}: recipe incomplete: ${completenessProblems.join(' | ')}`);
         feedback = completenessProblems.join(' ');

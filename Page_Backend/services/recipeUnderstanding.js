@@ -1,6 +1,7 @@
 import axios from 'axios';
 import https from 'https';
 import logger from '../config/logger.js';
+import { GROQ_FAST_MODEL } from '../config/groqModels.js';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -14,7 +15,7 @@ const httpsAgent = new https.Agent({
  */
 export const understandRecipe = async (dishName) => {
   const apiKey = process.env.GROQ_API_KEY;
-  const modelName = 'llama-3.1-8b-instant';
+  const modelName = GROQ_FAST_MODEL;
 
   const defaultUnderstanding = {
     recipe: dishName,
@@ -42,6 +43,7 @@ JSON Schema:
   "cuisine": "string",
   "mealType": "string",
   "primaryIngredients": ["string"],
+  "signatureFlavorings": ["string (spices, herbs and finishing touches that give the dish its characteristic taste, e.g. kasuri methi for butter chicken, hing for dal tadka)"],
   "cookingMethod": "string"
 }`;
 
@@ -74,7 +76,7 @@ JSON Schema:
       return parsed;
     }
   } catch (error) {
-    logger.error('Recipe understanding service failed:', { error: error.message });
+    logger.error('Recipe understanding service failed:', { error: error.response?.data?.error?.message || error.message });
   }
 
   return defaultUnderstanding;

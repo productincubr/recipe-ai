@@ -1,6 +1,7 @@
 import axios from 'axios';
 import https from 'https';
 import logger from '../config/logger.js';
+import { GROQ_FAST_MODEL } from '../config/groqModels.js';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -11,7 +12,7 @@ const httpsAgent = new https.Agent({
  */
 export const reviewRecipeSteps = async (dishName, steps, inputs, optimizationPlan, evidenceSummary) => {
   const apiKey = process.env.GROQ_API_KEY_REVIEWER || process.env.GROQ_API_KEY;
-  const modelName = 'llama-3.1-8b-instant';
+  const modelName = GROQ_FAST_MODEL;
 
   const defaultReview = {
     isPerfect: true,
@@ -30,7 +31,7 @@ Output: Strict JSON matching schema. NO prose, NO markdown blocks (\`\`\`json), 
 JSON Schema:
 {
   "isPerfect": boolean,
-  "safetyConfidence": number, // Scale 0-100
+  "safetyConfidence": "number from 0 to 100",
   "problems": ["string"],
   "correctionsNeeded": boolean
 }`;
@@ -85,7 +86,7 @@ Evaluate if the steps are highly detailed, clean, safe, and conform to the clini
       return parsed;
     }
   } catch (error) {
-    logger.error('Recipe reviewer agent failed:', { error: error.message });
+    logger.error('Recipe reviewer agent failed:', { error: error.response?.data?.error?.message || error.message, failed: String(error.response?.data?.error?.failed_generation || '').slice(0, 600) });
   }
 
   return defaultReview;

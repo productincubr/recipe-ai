@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import Exa from 'exa-js';
 import logger from '../config/logger.js';
+import { GROQ_FAST_MODEL } from '../config/groqModels.js';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -29,7 +30,7 @@ ${highlightsText}`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.1-8b-instant',
+        model: GROQ_FAST_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
