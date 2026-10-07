@@ -5,299 +5,212 @@ import { understandRecipe } from './recipeUnderstanding.js';
 import { retrieveEvidence } from './evidenceRetrieval.js';
 import { planOptimizations } from './optimizationPlanner.js';
 import { buildRecipeBlueprint } from './recipeArchitect.js';
-import { writeRecipeSteps } from './recipeWriter.js';
 import { reviewRecipeSteps } from './recipeReviewer.js';
 
 dotenv.config();
 
-/**
- * Local fallback recipe generator (runs if Groq API is missing or fails).
- */
-const getFallbackRecipe = (dishName, goals) => {
-  const cleanedName = dishName.trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  const displayName = cleanedName.toLowerCase().startsWith('healthy ') ? cleanedName : `Healthy ${cleanedName}`;
+const HEALTH_NOTE = "Health Note: These recipes are intended for general wellness and educational purposes. They are not medical advice. If you have a medical condition, are pregnant, or have significant dietary restrictions, consult a qualified healthcare professional before making major dietary changes.";
 
-  const defaultRecipe = {
-    dish_name: displayName,
-    category: 'Nutritious Twist',
-    description: `A wholesome, calorie-conscious remake of traditional ${dishName}, optimized to fit your goals: ${goals.join(', ')}.`,
-    calories: 380,
-    protein: '22g',
-    fiber: '8g',
-    fats: '9g',
-    sodium: '370mg',
-    cooking_time: '30 mins',
-    servings: 2,
-    difficulty: 'Easy',
-    cuisine: 'Healthy Cuisine',
-    diet_type: 'Vegetarian',
-    meal_type: 'Lunch, Dinner',
-    best_for: goals.join(', ') || 'Healthy eating',
-    ingredients: [
-      { name: 'High-protein Paneer, Tofu, or Lentils', qty: '200g' },
-      { name: 'Complex carbs (Quinoa, Brown Rice, or Oats)', qty: '1 cup' },
-      { name: 'Mixed fresh seasonal vegetables', qty: '1.5 cups' },
-      { name: 'Cold-pressed Olive or Avocado Oil', qty: '1 tbsp' },
-      { name: 'Low sodium seasoning / herbs', qty: 'to taste' },
-      { name: 'Garlic & Ginger paste', qty: '1 tsp' }
-    ],
-    steps: [
-      {
-        title: "Prepare Ingredients",
-        time: "10 mins",
-        heatLevel: "None",
-        ingredients: [
-          { name: "High-protein Paneer, Tofu, or Lentils", qty: "200g" }
-        ],
-        instructions: [
-          "Clean and slice the protein source into bite-size cubes.",
-          "Steam or lightly blanch the fresh seasonal vegetables and set aside."
-        ],
-        techniques: ["Prepping ingredients", "Blanching veggies"],
-        visualCues: {
-          time: "10 minutes",
-          heat: "None",
-          texture: "Firm cubes, vibrant vegetables",
-          aroma: "Fresh and clean",
-          goal: "Ready elements for fast cooking"
-        },
-        chefTip: "Keeping vegetable slices uniform ensures they cook evenly.",
-        commonMistakes: "Do not over-boil the vegetables, which destroys water-soluble vitamins."
-      },
-      {
-        title: "Cook Grains",
-        time: "15 mins",
-        heatLevel: "Medium",
-        ingredients: [
-          { name: "Complex carbs (Quinoa, Brown Rice, or Oats)", qty: "1 cup" }
-        ],
-        instructions: [
-          "Rinse the grains under cold water to remove surface starches.",
-          "Simmer in 2 cups of low-sodium broth or water for 15 minutes until fluffy."
-        ],
-        techniques: ["Simmering", "Fluffing grains"],
-        visualCues: {
-          time: "15 minutes",
-          heat: "Medium",
-          texture: "Light and fluffy grains",
-          aroma: "Toasty and nutty",
-          goal: "Cook grains as your base layer"
-        },
-        chefTip: "Let the grains stand covered for 5 minutes after cooking for maximum fluffiness.",
-        commonMistakes: "Stirring the grains during cooking makes them mushy."
-      },
-      {
-        title: "Combine and Finish",
-        time: "5 mins",
-        heatLevel: "Medium-Low",
-        ingredients: [
-          { name: "Cold-pressed Olive or Avocado Oil", qty: "1 tbsp" },
-          { name: "Low sodium seasoning / herbs", qty: "to taste" }
-        ],
-        instructions: [
-          "Heat cold-pressed oil in a sauté pan over medium-low heat.",
-          "Toss the prepared protein cubes and blanched vegetables together, dusting with herbs and low-sodium seasoning."
-        ],
-        techniques: ["Sautéing", "Infusing herbs"],
-        visualCues: {
-          time: "5 minutes",
-          heat: "Medium-Low",
-          texture: "Lightly glazed and heated through",
-          aroma: "Savory herbs and toasted oil",
-          goal: "Assemble the balanced meal layers"
-        },
-        chefTip: "Serve hot over the warm whole grains.",
-        commonMistakes: "Do not overheat cold-pressed oil, which breaks down healthy fats."
-      }
-    ],
-    healthier_explanation: `We updated this recipe by replacing refined carbohydrates with high-fiber whole grains, cooking with cold-pressed oils instead of butter/ghee, lowering sodium levels, and maximizing fresh vegetables to increase density.`
-  };
-  return defaultRecipe;
+const MAX_ATTEMPTS = 3;
+const MIN_INGREDIENTS = 6;
+const MIN_STEPS = 5;
+const MIN_INSTRUCTIONS_PER_STEP = 2;
+const MAX_UNUSED_INGREDIENTS = 2;
+
+const NAME_FILLER_WORDS = new Set(['fresh', 'thick', 'low', 'fat', 'low-fat', 'small', 'medium', 'large', 'chopped', 'powder', 'whole', 'ground', 'optional', 'with']);
+
+const stepsText = (steps) =>
+  steps
+    .map(s => `${s.title || ''} ${(s.instructions || []).join(' ')}`)
+    .join(' ')
+    .toLowerCase();
+
+const isIngredientUsed = (ingredientName, text) => {
+  const tokens = ingredientName
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(t => t.length > 2 && !NAME_FILLER_WORDS.has(t));
+  if (tokens.length === 0) return true;
+  return tokens.some(t => text.includes(t) || text.includes(t.replace(/s$/, '')));
 };
 
 /**
- * Dynamically generates a healthy recipe payload using Groq's LLM APIs.
- * Runs in 3 Phases: Understanding, Grounded Generation (Architect + Writer loop), and Validation/Review (Reviewer).
- * 
- * @param {object} inputs - User inputs containing health goals & clinical restrictions
- * @returns {Promise<object>} - Result containing success status, recipe, safety review, and health note
+ * Returns a list of human-readable problems that make the recipe incomplete.
+ * The list is fed back to the model on the next attempt.
+ */
+const findCompletenessProblems = (recipe) => {
+  const problems = [];
+  const { ingredients, steps } = recipe;
+
+  if (ingredients.length < MIN_INGREDIENTS) {
+    problems.push(`Only ${ingredients.length} ingredients listed; list every ingredient including spices, oil, salt and garnish.`);
+  }
+  const missingQty = ingredients.filter(i => !i.qty).map(i => i.name);
+  if (missingQty.length > 0) {
+    problems.push(`Missing quantities for: ${missingQty.join(', ')}.`);
+  }
+  if (steps.length < MIN_STEPS) {
+    problems.push(`Only ${steps.length} steps; write 6-10 steps covering prep to serving.`);
+  }
+  const thinSteps = steps.filter(s => s.instructions.length < MIN_INSTRUCTIONS_PER_STEP).map(s => s.title);
+  if (thinSteps.length > 0) {
+    problems.push(`These steps need 2-4 detailed instructions each: ${thinSteps.join(', ')}.`);
+  }
+  const text = stepsText(steps);
+  const unused = ingredients.filter(i => !isIngredientUsed(i.name, text)).map(i => i.name);
+  if (unused.length > MAX_UNUSED_INGREDIENTS) {
+    problems.push(`These ingredients are listed but never used in the method: ${unused.join(', ')}.`);
+  }
+
+  return problems;
+};
+
+const normalizeSteps = (steps) =>
+  (Array.isArray(steps) ? steps : [])
+    .filter(s => s && typeof s === 'object')
+    .map((s, idx) => ({
+      title: s.title || `Step ${idx + 1}`,
+      time: s.time || '',
+      heatLevel: s.heatLevel || '',
+      instructions: (Array.isArray(s.instructions) ? s.instructions : [s.instructions])
+        .filter(i => typeof i === 'string' && i.trim())
+        .map(i => i.trim()),
+      chefTip: s.chefTip || '',
+      commonMistakes: s.commonMistakes || ''
+    }));
+
+const buildHealthierExplanation = (bp) =>
+  [
+    bp.healthier_explanation,
+    bp.proteinBoost ? `Protein boost: ${bp.proteinBoost}` : '',
+    bp.servingSuggestion ? `Serve with: ${bp.servingSuggestion}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+const toDraftRecipe = (bp, dishName, goals, recipeUnderstanding, optimizationPlan) => {
+  const rawDishName = bp.dish_name || `Healthy ${dishName}`;
+  return {
+    dish_name: rawDishName.replace(/^(healthy\s+)+/i, 'Healthy '),
+    category: bp.category || 'Nutritious Twist',
+    description: bp.description || '',
+    calories: bp.calories,
+    protein: bp.protein,
+    fiber: bp.fiber,
+    fats: bp.fats,
+    sodium: bp.sodium,
+    cooking_time: bp.totalTime || bp.cookTime || '',
+    servings: bp.servings || 2,
+    difficulty: bp.difficulty || 'Easy',
+    cuisine: bp.cuisine || recipeUnderstanding.cuisine,
+    diet_type: bp.diet_type || '',
+    meal_type: bp.meal_type || '',
+    best_for: goals.join(', '),
+    ingredients: (bp.ingredients || [])
+      .filter(ing => ing && ing.name)
+      .map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty || '', prep: ing.prep || '' })),
+    steps: normalizeSteps(bp.steps),
+    optimization_plan: optimizationPlan,
+    healthier_explanation: buildHealthierExplanation(bp)
+  };
+};
+
+/**
+ * Generates a healthy recipe with Groq in 3 phases:
+ * understanding/evidence/optimization, full-recipe generation, and validation/review.
+ * Retries with targeted feedback until the recipe is complete and safe.
  */
 export const generateHealthyRecipeText = async (inputs) => {
-  const {
-    dish: dishName,
-    goals = [],
-    medicalConditions = [],
-    allergies = [],
-    dietaryPreferences = 'No Preference',
-    dislikedIngredients = [],
-    cookingLevel = 'Intermediate',
-    cookingTime = '30 mins',
-    budget = '$$',
-    cuisine = 'Healthy',
-    kitchenEquipment = [],
-    servings = 2
-  } = inputs;
+  const { dish: dishName, goals = [] } = inputs;
 
-  const apiKey = process.env.GROQ_API_KEY;
-
-  // -------------------------------------------------------------
-  // PHASE 1: UNDERSTANDING & RETRIEVAL
-  // -------------------------------------------------------------
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
+  const addTokens = (usage) => {
+    if (!usage) return;
+    totalPromptTokens += usage.prompt_tokens || 0;
+    totalCompletionTokens += usage.completion_tokens || 0;
+  };
 
   logger.info(`Phase 1: Starting recipe understanding for: "${dishName}"`);
   const recipeUnderstanding = await understandRecipe(dishName);
-  if (recipeUnderstanding && recipeUnderstanding.token_metrics) {
-    totalPromptTokens += recipeUnderstanding.token_metrics.prompt_tokens || 0;
-    totalCompletionTokens += recipeUnderstanding.token_metrics.completion_tokens || 0;
-  }
+  addTokens(recipeUnderstanding?.token_metrics);
 
-  logger.info(`Phase 1: Starting evidence retrieval for health profile`);
+  logger.info('Phase 1: Starting evidence retrieval for health profile');
   const evidence = await retrieveEvidence(inputs);
 
-  logger.info(`Phase 1: Planning recipe optimizations & ingredient swaps`);
+  logger.info('Phase 1: Planning recipe optimizations & ingredient swaps');
   const optimizationPlan = await planOptimizations(recipeUnderstanding, inputs, evidence.summary);
-  if (optimizationPlan && optimizationPlan.token_metrics) {
-    totalPromptTokens += optimizationPlan.token_metrics.prompt_tokens || 0;
-    totalCompletionTokens += optimizationPlan.token_metrics.completion_tokens || 0;
-  }
+  addTokens(optimizationPlan?.token_metrics);
 
-  if (!apiKey) {
-    logger.warn('GROQ_API_KEY is not defined. Falling back to local recipe generation.');
-    const fallbackRecipe = getFallbackRecipe(dishName, goals);
-    fallbackRecipe.optimization_plan = optimizationPlan;
-    const safety_review = validateGeneratedRecipe(fallbackRecipe, inputs, evidence.summary, recipeUnderstanding);
+  let feedback = '';
+  let best = null;
 
-    return {
-      success: true,
-      recipe: fallbackRecipe,
-      safety_review,
-      health_note: "Health Note: These recipes are intended for general wellness and educational purposes. They are not medical advice. If you have a medical condition, are pregnant, or have significant dietary restrictions, consult a qualified healthcare professional before making major dietary changes."
-    };
-  }
-
-  let attempt = 0;
-  let finalRecipe = null;
-  let validatedResult = null;
-  let safetyReviewerFeedback = null;
-
-  while (attempt < 3) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      // -------------------------------------------------------------
-      // PHASE 2: MULTI-AGENT GENERATION
-      // -------------------------------------------------------------
-      
-      // Agent 1: Recipe Blueprint (metadata + step titles only)
-      logger.info(`Phase 2: Invoking Recipe Architect (blueprint + step titles)`);
-      const blueprint = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding);
-      if (blueprint && blueprint.token_metrics) {
-        totalPromptTokens += blueprint.token_metrics.prompt_tokens || 0;
-        totalCompletionTokens += blueprint.token_metrics.completion_tokens || 0;
+      logger.info(`Phase 2: Generating full recipe (attempt ${attempt}/${MAX_ATTEMPTS})`);
+      const blueprint = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding, feedback);
+      if (!blueprint) {
+        logger.warn(`Attempt ${attempt}: recipe model returned nothing.`);
+        continue;
+      }
+      addTokens(blueprint.token_metrics);
+
+      const draftRecipe = toDraftRecipe(blueprint, dishName, goals, recipeUnderstanding, optimizationPlan);
+      draftRecipe.token_metrics = { model_used: blueprint.token_metrics?.model_used };
+
+      const completenessProblems = findCompletenessProblems(draftRecipe);
+      if (completenessProblems.length > 0) {
+        logger.warn(`Attempt ${attempt}: recipe incomplete: ${completenessProblems.join(' | ')}`);
+        feedback = completenessProblems.join(' ');
+        continue;
       }
 
-      // Normalize steps to title strings in case architect returned full objects
-      if (Array.isArray(blueprint.steps)) {
-        blueprint.steps = blueprint.steps.map((s, idx) =>
-          typeof s === 'string' ? s : (s.title || `Step ${idx + 1}`)
-        );
+      logger.info('Phase 3: Reviewing recipe steps and running rule-based validators');
+      const reviewerFeedback = await reviewRecipeSteps(dishName, draftRecipe.steps, inputs, optimizationPlan, evidence.summary);
+      addTokens(reviewerFeedback?.token_metrics);
+
+      const validatedResult = validateGeneratedRecipe(draftRecipe, inputs, evidence.summary, recipeUnderstanding);
+      validatedResult.confidence = Math.round(validatedResult.confidence * 0.7 + (reviewerFeedback.safetyConfidence ?? 90) * 0.3);
+      validatedResult.reviewer_problems = reviewerFeedback.problems || [];
+
+      if (!validatedResult.isValid) {
+        logger.warn(`Attempt ${attempt}: failed safety checks: ${validatedResult.errors.join(', ')}`);
+        feedback = `Safety violations: ${validatedResult.errors.join('; ')}.`;
+        continue;
       }
 
-      // Agent 2: Generate each step individually for full detail
-      logger.info(`Phase 2: Invoking Recipe Writer to generate ${(blueprint.steps || []).length} detailed steps`);
-      const detailedSteps = await writeRecipeSteps(dishName, blueprint, inputs, optimizationPlan, evidence.summary);
-
-      // Assemble draft recipe object for review
-      const rawDishName = blueprint.dish_name || `Healthy ${dishName}`;
-      const deduplicatedDishName = /^healthy\s+healthy\s+/i.test(rawDishName)
-        ? rawDishName.replace(/^healthy\s+/i, '')
-        : rawDishName;
-      const draftRecipe = {
-        dish_name: deduplicatedDishName,
-        category: blueprint.category || 'Nutritious Twist',
-        description: blueprint.description || 'A healthy remake optimized for your dietary goals.',
-        calories: blueprint.calories || 380,
-        protein: blueprint.protein || '20g',
-        fiber: blueprint.fiber || '8g',
-        fats: blueprint.fats || '10g',
-        sodium: blueprint.sodium || '400mg',
-        cooking_time: blueprint.cookTime || blueprint.cooking_time || '30 mins',
-        servings: blueprint.servings || 2,
-        difficulty: blueprint.difficulty || 'Easy',
-        cuisine: blueprint.cuisine || recipeUnderstanding.cuisine,
-        diet_type: blueprint.diet_type || 'Vegetarian',
-        meal_type: blueprint.meal_type || 'Dinner',
-        best_for: goals.join(', '),
-        ingredients: (blueprint.ingredients || []).map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty })),
-        steps: detailedSteps,
-        optimization_plan: optimizationPlan,
-        healthier_explanation: blueprint.description
-      };
-
-      logger.info(`Phase 3: Invoking Agent 3 (Recipe Reviewer) for editorial critique`);
-      safetyReviewerFeedback = await reviewRecipeSteps(dishName, draftRecipe.steps, inputs, optimizationPlan, evidence.summary);
-      if (safetyReviewerFeedback && safetyReviewerFeedback.token_metrics) {
-        totalPromptTokens += safetyReviewerFeedback.token_metrics.prompt_tokens || 0;
-        totalCompletionTokens += safetyReviewerFeedback.token_metrics.completion_tokens || 0;
+      if (!best || validatedResult.confidence > best.safety_review.confidence) {
+        best = { recipe: draftRecipe, safety_review: validatedResult };
       }
-
-      logger.info(`Phase 3: Running Rule-Based Validators on draft recipe`);
-      validatedResult = validateGeneratedRecipe(draftRecipe, inputs, evidence.summary, recipeUnderstanding);
-
-      // Calculate combined safety confidence (weighted average)
-      const ruleConfidence = validatedResult.confidence;
-      const peerConfidence = safetyReviewerFeedback.safetyConfidence;
-      const combinedConfidence = Math.round((ruleConfidence * 0.7) + (peerConfidence * 0.3));
-
-      validatedResult.confidence = combinedConfidence;
-      validatedResult.reviewer_problems = safetyReviewerFeedback.problems;
-
-      if (validatedResult.isValid && combinedConfidence >= 80) {
-        logger.info(`Recipe successfully validated on attempt ${attempt + 1}. Combined Confidence: ${combinedConfidence}%`);
-        draftRecipe.token_metrics = {
-          prompt_tokens: totalPromptTokens,
-          completion_tokens: totalCompletionTokens,
-          total_tokens: totalPromptTokens + totalCompletionTokens,
-          model_used: 'llama-3.1-8b-instant'
-        };
-        finalRecipe = draftRecipe;
+      if (validatedResult.confidence >= 80) {
+        logger.info(`Recipe validated on attempt ${attempt}. Confidence: ${validatedResult.confidence}%`);
         break;
-      } else {
-        logger.warn(`Attempt ${attempt + 1} failed checks or has low confidence (${combinedConfidence}%). Errors: ${validatedResult.errors.join(', ')}`);
-        attempt++;
       }
+      feedback = (validatedResult.warnings || []).join(' ');
     } catch (error) {
-      logger.error(`Attempt ${attempt + 1} failed in E2E agent pipeline: ${error.message}`);
-      attempt++;
+      logger.error(`Attempt ${attempt} failed in recipe pipeline: ${error.message}`);
     }
   }
 
-  // Final check
-  if (finalRecipe && validatedResult) {
+  if (!best) {
+    logger.error(`Recipe generation failed for "${dishName}" after ${MAX_ATTEMPTS} attempts.`);
     return {
-      success: true,
-      recipe: finalRecipe,
-      safety_review: validatedResult,
-      health_note: "Health Note: These recipes are intended for general wellness and educational purposes. They are not medical advice. If you have a medical condition, are pregnant, or have significant dietary restrictions, consult a qualified healthcare professional before making major dietary changes."
+      success: false,
+      error: 'We could not generate a complete recipe right now. Please try again in a moment.'
     };
   }
 
-  // Fallback
-  logger.warn('Multi-Agent recipe generation failed. Falling back to local recipe.');
-  const fallbackRecipe = getFallbackRecipe(dishName, goals);
-  fallbackRecipe.optimization_plan = optimizationPlan;
-  fallbackRecipe.token_metrics = {
-    prompt_tokens: 0,
-    completion_tokens: 0,
-    total_tokens: 0,
-    model_used: 'local_fallback'
+  best.recipe.token_metrics = {
+    prompt_tokens: totalPromptTokens,
+    completion_tokens: totalCompletionTokens,
+    total_tokens: totalPromptTokens + totalCompletionTokens,
+    model_used: best.recipe.token_metrics?.model_used
   };
-  const safety_review = validateGeneratedRecipe(fallbackRecipe, inputs, evidence.summary, recipeUnderstanding);
 
   return {
     success: true,
-    recipe: fallbackRecipe,
-    safety_review,
-    health_note: "Health Note: These recipes are intended for general wellness and educational purposes. They are not medical advice. If you have a medical condition, are pregnant, or have significant dietary restrictions, consult a qualified healthcare professional before making major dietary changes."
+    recipe: best.recipe,
+    safety_review: best.safety_review,
+    health_note: HEALTH_NOTE
   };
 };

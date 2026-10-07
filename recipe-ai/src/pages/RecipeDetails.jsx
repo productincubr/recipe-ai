@@ -340,7 +340,7 @@ export default function RecipeDetails() {
         {recipe.healthier_explanation && (
           <div className="bg-cream-100 border border-cream-300 rounded-2xl p-5 mb-8 flex gap-4">
             <Sparkles className="text-olive shrink-0 h-6 w-6" />
-            <p className="text-ink-soft text-sm leading-relaxed">
+            <p className="text-ink-soft text-sm leading-relaxed whitespace-pre-line">
               <strong className="text-ink block mb-1">Why it's healthier</strong>
               {recipe.healthier_explanation}
             </p>
@@ -406,7 +406,10 @@ export default function RecipeDetails() {
             <ul className="divide-y divide-cream-200">
               {Array.isArray(recipe.ingredients) && recipe.ingredients.map((ing, i) => (
                 <li key={i} className="flex items-baseline justify-between gap-4 py-3 text-sm">
-                  <span className="text-ink font-medium">{ing.name}</span>
+                  <span className="text-ink font-medium">
+                    {ing.name}
+                    {ing.prep && <span className="block text-xs font-normal text-ink-muted mt-0.5">{ing.prep}</span>}
+                  </span>
                   <span className="text-ink-muted text-right shrink-0 whitespace-nowrap">{ing.qty || ing.quantity}</span>
                 </li>
               ))}
