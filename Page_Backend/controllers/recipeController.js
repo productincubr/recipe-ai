@@ -4,6 +4,37 @@ import { generateDishImage } from '../services/stability.js';
 import { saveRecipe, uploadImageToStorage } from '../services/recipeService.js';
 import { validateInputs, checkPreContradictions } from '../services/recipeValidator.js';
 import { scanMealImage } from '../services/mealScanner.js';
+import { supabase } from '../config/supabase.js';
+
+// recipeId -> in-flight generation, so the recipe page opening while the
+// post-create generation is still running doesn't pay for a second image.
+const pendingImages = new Map();
+
+/**
+ * Generates a photo of this recipe's dish, stores it and saves it on the recipe row.
+ * Returns the image URL, or null when every image provider failed.
+ */
+const attachDishImage = (recipeId, dishName, details = {}) => {
+  if (!recipeId) return generateAndStoreImage(recipeId, dishName, details);
+  if (!pendingImages.has(recipeId)) {
+    pendingImages.set(recipeId, generateAndStoreImage(recipeId, dishName, details)
+      .finally(() => pendingImages.delete(recipeId)));
+  }
+  return pendingImages.get(recipeId);
+};
+
+const generateAndStoreImage = async (recipeId, dishName, details) => {
+  const base64Image = await generateDishImage(dishName, details);
+  if (!base64Image) return null;
+
+  const imageUrl = await uploadImageToStorage(base64Image, dishName);
+  if (recipeId && !String(recipeId).startsWith('temp-')) {
+    const { error } = await supabase.from('recipes').update({ image_url: imageUrl }).eq('id', recipeId);
+    if (error) logger.warn(`Failed to update recipe image URL in DB: ${error.message}`);
+    else logger.info(`Successfully updated recipe ID ${recipeId} image URL in database.`);
+  }
+  return imageUrl;
+};
 
 /**
  * Handles HTTP requests for E2E healthy recipe generation.
@@ -59,7 +90,7 @@ export const generateRecipe = async (req, res) => {
 
     const { recipe, safety_review, health_note } = result;
 
-    // Skip initial image generation (user can generate on-demand)
+    // The image is generated in the background after saving so the response isn't delayed.
     recipe.image_url = null;
 
     // Step 3: Save generated recipe and request history to Supabase (Database & Storage)
@@ -71,6 +102,8 @@ export const generateRecipe = async (req, res) => {
         spiceLevel
       });
       logger.info(`Recipe generation successfully saved to database with ID: ${savedRecord.id}`);
+      attachDishImage(savedRecord.id, recipe.dish_name, recipe)
+        .catch((err) => logger.warn(`Background image generation failed: ${err.message}`));
     } catch (dbError) {
       logger.warn('Failed to save generated recipe to database. Proceeding with in-memory payload.', { error: dbError.message });
       savedRecord = {
@@ -111,11 +144,10 @@ export const generateRecipeImage = async (req, res) => {
   try {
     logger.info(`Generating on-demand image for dish: "${dishName}", recipe ID: ${recipeId}`);
 
-    // 0. Pull the actual recipe content so the image reflects what was really cooked,
+    // Pull the actual recipe content so the image reflects what was really cooked,
     // instead of guessing from the dish name alone.
     let details = {};
     if (recipeId && !recipeId.startsWith('temp-')) {
-      const { supabase } = await import('../config/supabase.js');
       const { data } = await supabase
         .from('recipes')
         .select('description, ingredients, cuisine')
@@ -124,29 +156,9 @@ export const generateRecipeImage = async (req, res) => {
       if (data) details = data;
     }
 
-    // 1. Fetch photorealistic imagery from Stability AI
-    const base64Image = await generateDishImage(dishName, details);
-    
-    if (!base64Image) {
-      return res.status(500).json({ error: 'Failed to generate image from Stability AI.' });
-    }
-
-    // 2. Upload image to Supabase Storage if configured
-    const imageUrl = await uploadImageToStorage(base64Image, dishName);
-
-    // 3. Update the database record if it's a real recipe ID
-    if (recipeId && !recipeId.startsWith('temp-')) {
-      const { supabase } = await import('../config/supabase.js');
-      const { error } = await supabase
-        .from('recipes')
-        .update({ image_url: imageUrl })
-        .eq('id', recipeId);
-
-      if (error) {
-        logger.warn(`Failed to update recipe image URL in DB: ${error.message}`);
-      } else {
-        logger.info(`Successfully updated recipe ID ${recipeId} image URL in database.`);
-      }
+    const imageUrl = await attachDishImage(recipeId, dishName, details);
+    if (!imageUrl) {
+      return res.status(502).json({ error: 'No image provider could generate an image. Check STABILITY_API_KEY credits or GEMINI_API_KEY billing in the server logs.' });
     }
 
     return res.status(200).json({ image_url: imageUrl });
@@ -162,7 +174,6 @@ export const generateRecipeImage = async (req, res) => {
 export const getRecipeById = async (req, res) => {
   const { id } = req.params;
   try {
-    const { supabase } = await import('../config/supabase.js');
     const { data, error } = await supabase
       .from('recipes')
       .select('*')

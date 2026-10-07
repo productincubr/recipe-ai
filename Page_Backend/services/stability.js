@@ -11,7 +11,7 @@ const httpsAgent = new https.Agent({
 });
 
 /**
- * Generates an image of a dish using Stability AI with SSL verification disabled.
+ * Generates a photo of this specific dish: Stability AI first, then Gemini.
  *
  * @param {string} dishName - Name of the dish.
  * @param {object} [details] - Extra recipe context to ground the image in what was actually cooked.
@@ -21,10 +21,56 @@ const httpsAgent = new https.Agent({
  * @returns {Promise<string|null>} - Base64 Data URL of the generated image or null.
  */
 export const generateDishImage = async (dishName, details = {}) => {
+  return (await generateWithStability(dishName, details)) || generateWithGemini(dishName, details);
+};
+
+// Override via env when Google renames/retires the model.
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+
+/**
+ * Second provider, so a recipe still gets a photo of its own dish when
+ * Stability AI has no key or credits.
+ */
+const generateWithGemini = async (dishName, details) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    logger.warn('GEMINI_API_KEY is not defined. No image provider available.');
+    return null;
+  }
+
+  const keyIngredients = keyIngredientsOf(details);
+  const prompt = `Professional food photography of ${dishName}${details.cuisine ? ` (${details.cuisine} cuisine)` : ''}${keyIngredients ? `, made with ${keyIngredients}` : ''}. Show exactly this dish, beautifully plated, warm natural light, photorealistic, appetizing. No text, no people.`;
+
+  logger.info(`Generating image for "${dishName}" with Gemini (${GEMINI_IMAGE_MODEL})...`);
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE'] }
+      },
+      { httpsAgent, timeout: 90000, headers: { 'Content-Type': 'application/json' } }
+    );
+    const image = response.data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)?.inlineData;
+    if (!image) throw new Error('No image returned.');
+    logger.info('Gemini image generated successfully.');
+    return `data:${image.mimeType || 'image/png'};base64,${image.data}`;
+  } catch (error) {
+    logger.error(`Gemini image generation failed (${error.response?.status || 'no status'}): ${error.response?.data?.error?.message || error.message}`);
+    return null;
+  }
+};
+
+const keyIngredientsOf = (details) =>
+  Array.isArray(details.ingredients)
+    ? details.ingredients.slice(0, 6).map((i) => i.name).filter(Boolean).join(', ')
+    : '';
+
+const generateWithStability = async (dishName, details) => {
   const apiKey = process.env.STABILITY_API_KEY;
 
   if (!apiKey) {
-    logger.warn('STABILITY_API_KEY is not defined in environment variables. Image generation will be skipped.');
+    logger.warn('STABILITY_API_KEY is not defined. Trying the next image provider.');
     return null;
   }
 
@@ -32,9 +78,7 @@ export const generateDishImage = async (dishName, details = {}) => {
 
   const url = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image';
 
-  const keyIngredients = Array.isArray(details.ingredients)
-    ? details.ingredients.slice(0, 6).map((i) => i.name).filter(Boolean).join(', ')
-    : '';
+  const keyIngredients = keyIngredientsOf(details);
 
   const grounding = [
     details.cuisine ? `${details.cuisine} cuisine` : '',
