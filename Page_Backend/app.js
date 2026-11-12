@@ -40,7 +40,7 @@ app.get('/health', async (req, res) => {
   let database = 'ok';
   try {
     const { error } = await supabase.from('recipes').select('id').limit(1);
-    if (error) database = `error: ${error.message}`;
+    if (error) database = `error: ${error.message}${error.details ? ` | ${String(error.details).slice(0, 300)}` : ''}`;
   } catch (err) {
     database = `error: ${err.message}${err.cause ? ` (${err.cause.message || err.cause.code})` : ''}`;
   }
@@ -48,6 +48,8 @@ app.get('/health', async (req, res) => {
     status: database === 'ok' ? 'healthy' : 'degraded',
     database,
     node: process.version,
+    // Masked project host, enough to spot a wrong/old VITE_SUPABASE_URL on the server.
+    databaseHost: (process.env.VITE_SUPABASE_URL || 'missing').replace(/^https?:\/\/([a-z0-9]{4})[a-z0-9]*/i, '$1***'),
     commit: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
     timestamp: new Date(),
   });
