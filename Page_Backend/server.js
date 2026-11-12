@@ -1,17 +1,19 @@
-// Disable SSL certificate validation globally for local development environment
-// Essential for bypassing antivirus/firewall HTTPS intercepts on Node.js native fetch/axios calls
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 import { Agent, setGlobalDispatcher } from 'undici';
 import dotenv from 'dotenv';
 import app from './app.js';
 import logger from './config/logger.js';
 
-// NODE_TLS_REJECT_UNAUTHORIZED alone does not cover Node's native fetch (undici) —
-// it only affects the legacy http/https modules (used by axios). Supabase's client
-// calls fetch directly, so give undici's global dispatcher the same bypass or every
-// Supabase request fails outright on networks with SSL-intercepting antivirus/firewalls.
-setGlobalDispatcher(new Agent({ connect: { rejectUnauthorized: false } }));
+// SSL bypass is for LOCAL development only (antivirus/firewall HTTPS intercepts).
+// On the hosted server it must stay off: it is a security hole there, and replacing
+// Node's built-in fetch dispatcher with the npm `undici` package's Agent breaks every
+// Supabase request when the two undici versions don't match (e.g. on newer Node).
+const isHosted = Boolean(process.env.RENDER) || process.env.NODE_ENV === 'production';
+if (!isHosted) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  // NODE_TLS_REJECT_UNAUTHORIZED alone does not cover Node's native fetch (undici),
+  // which Supabase's client uses, so give undici's global dispatcher the same bypass.
+  setGlobalDispatcher(new Agent({ connect: { rejectUnauthorized: false } }));
+}
 
 // Load environment variables from .env
 dotenv.config();
