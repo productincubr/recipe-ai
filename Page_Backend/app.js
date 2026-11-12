@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import recipeRoutes from './routes/recipeRoutes.js';
 import userFeaturesRoutes from './routes/userFeaturesRoutes.js';
+import { supabase } from './config/supabase.js';
 
 const app = express();
 
@@ -33,8 +34,23 @@ app.use('/api/recipes', recipeRoutes);
 app.use('/api/user', userFeaturesRoutes);
 
 // General Health Check Endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date() });
+// Reports which build is live and whether the database is reachable, so a broken
+// deploy can be diagnosed without access to the hosting dashboard's logs.
+app.get('/health', async (req, res) => {
+  let database = 'ok';
+  try {
+    const { error } = await supabase.from('recipes').select('id').limit(1);
+    if (error) database = `error: ${error.message}`;
+  } catch (err) {
+    database = `error: ${err.message}${err.cause ? ` (${err.cause.message || err.cause.code})` : ''}`;
+  }
+  res.status(database === 'ok' ? 200 : 503).json({
+    status: database === 'ok' ? 'healthy' : 'degraded',
+    database,
+    node: process.version,
+    commit: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
+    timestamp: new Date(),
+  });
 });
 
 export default app;
