@@ -36,6 +36,13 @@ app.use('/api/user', userFeaturesRoutes);
 // General Health Check Endpoint
 // Reports which build is live and whether the database is reachable, so a broken
 // deploy can be diagnosed without access to the hosting dashboard's logs.
+// Error text can echo request headers (e.g. a malformed API key), so strip anything
+// key-like before it reaches this public endpoint.
+const redact = (text) =>
+  String(text)
+    .replace(/sb_(secret|publishable)_[^\s"'|]*(\s+[^\s"'|]+)?/gi, 'sb_$1_[redacted]')
+    .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[redacted-jwt]');
+
 app.get('/health', async (req, res) => {
   let database = 'ok';
   try {
@@ -44,6 +51,7 @@ app.get('/health', async (req, res) => {
   } catch (err) {
     database = `error: ${err.message}${err.cause ? ` (${err.cause.message || err.cause.code})` : ''}`;
   }
+  database = redact(database);
   res.status(database === 'ok' ? 200 : 503).json({
     status: database === 'ok' ? 'healthy' : 'degraded',
     database,
