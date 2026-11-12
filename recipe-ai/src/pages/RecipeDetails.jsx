@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -24,8 +24,7 @@ import {
   ChefHat,
   Timer,
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
+import { downloadRecipePdf } from '../utils/recipePdf';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import { getRecipeImage } from '../utils/recipeFallbackImage';
 
@@ -113,7 +112,6 @@ export default function RecipeDetails() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const cardRef = useRef(null);
 
   // Clear the previous recipe as soon as the id changes so its content is never
   // shown (or mixed) under the next recipe while that one loads.
@@ -201,36 +199,23 @@ export default function RecipeDetails() {
   };
 
   const handleDownload = async () => {
-    if (!cardRef.current || downloading) return;
+    if (!recipe || downloading) return;
     setDownloading(true);
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 1.5,
-        backgroundColor: '#ffffff',
-        useCORS: true,
+      const plan = recipe.optimization_plan || navState?.optimizationPlan;
+      await downloadRecipePdf({
+        recipe,
+        details: recipe.details || {},
+        badges: buildBadges(preferences, recipe),
+        swaps: plan?.swaps || [],
+        methodAdjustments: plan?.methodAdjustments || [],
+        ingredientGroups: groupIngredients(recipe.ingredients),
+        imageSrc: recipe.image_url || getRecipeImage(recipe),
+        nonVeg: isNonVegRecipe(recipe),
       });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.85);
-      const pdf = new jsPDF('p', 'pt', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(`${recipe.dish_name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      alert('Could not create the PDF. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -295,7 +280,7 @@ export default function RecipeDetails() {
         </div>
       </div>
 
-      <div ref={cardRef} className="bg-white rounded-3xl border border-cream-300 shadow-card p-8">
+      <div className="bg-white rounded-3xl border border-cream-300 shadow-card p-8">
         <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
           {/* Left Title & Meta Info */}
           <div className="flex-1">
