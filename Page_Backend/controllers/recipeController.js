@@ -4,6 +4,8 @@ import { generateDishImage } from '../services/stability.js';
 import { saveRecipe, uploadImageToStorage } from '../services/recipeService.js';
 import { validateInputs, checkPreContradictions } from '../services/recipeValidator.js';
 import { scanMealImage } from '../services/mealScanner.js';
+import { validateAndCorrectRecipe } from '../services/recipeConsistency.js';
+import { persistRecipeIntelligence } from '../services/recipePersistence.js';
 import { supabase } from '../config/supabase.js';
 
 // recipeId -> in-flight generation, so the recipe page opening while the
@@ -102,6 +104,10 @@ export const generateRecipe = async (req, res) => {
         spiceLevel
       });
       logger.info(`Recipe generation successfully saved to database with ID: ${savedRecord.id}`);
+      // Structured rows (ingredients, steps, nutrition, validation, quality) for
+      // the normalised tables; recipes.details already holds the full recipe.
+      persistRecipeIntelligence(savedRecord.id, recipe, 'generate')
+        .catch((err) => logger.warn(`Structured recipe storage failed: ${err.message}`));
       attachDishImage(savedRecord.id, recipe.dish_name, recipe)
         .catch((err) => logger.warn(`Background image generation failed: ${err.message}`));
     } catch (dbError) {
@@ -121,6 +127,8 @@ export const generateRecipe = async (req, res) => {
     return res.status(200).json({
       ...savedRecord,
       optimization_plan: recipe.optimization_plan,
+      quality: recipe.details?.quality,
+      validation: recipe.details?.validation,
       safety_review,
       health_note,
       token_metrics: recipe.token_metrics
@@ -150,10 +158,12 @@ export const generateRecipeImage = async (req, res) => {
     if (recipeId && !recipeId.startsWith('temp-')) {
       const { data } = await supabase
         .from('recipes')
-        .select('description, ingredients, cuisine')
+        .select('*')
         .eq('id', recipeId)
         .single();
-      if (data) details = data;
+      // The image brief (colour, main ingredients, what to avoid) comes from
+      // the validated recipe, so e.g. a red curry is never drawn as a green one.
+      if (data) details = validateAndCorrectRecipe(data, { mode: 'read' }).recipe;
     }
 
     const imageUrl = await attachDishImage(recipeId, dishName, details);
@@ -187,7 +197,16 @@ export const getRecipeById = async (req, res) => {
       throw error;
     }
 
-    return res.status(200).json({ success: true, data });
+    // Validate before the recipe is displayed or exported to PDF, so recipes
+    // saved before the consistency layer existed are corrected too.
+    let recipe = data;
+    try {
+      recipe = validateAndCorrectRecipe(data, { mode: 'read' }).recipe;
+    } catch (validationError) {
+      logger.warn(`Consistency check failed for recipe ${id}: ${validationError.message}`);
+    }
+
+    return res.status(200).json({ success: true, data: recipe });
   } catch (error) {
     logger.error(`Error fetching recipe by id ${id}:`, { error: error.message });
     return res.status(500).json({ error: 'Failed to fetch recipe' });

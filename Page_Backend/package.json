@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test tests/recipeValidation.test.mjs",
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "build:ingredients": "node scripts/buildIngredientDb.mjs"
   },
   "keywords": [],
   "author": "",

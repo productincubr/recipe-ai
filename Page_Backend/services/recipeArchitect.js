@@ -7,80 +7,52 @@ const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
 });
 
-const SYSTEM_PROMPT = `Role: Senior recipe developer for a premium healthy-cooking cookbook.
-Task: Generate a complete, cookable recipe. Do not summarize the recipe. Do not omit ingredients, quantities, preparation details, cooking steps, timing, temperatures, substitutions, or serving instructions. Every instruction must be actionable and specific to THIS dish. A home cook must be able to make it using only what you write.
-Output: Strict JSON matching the schema. NO prose, NO markdown, NO wrapper text.
+const SYSTEM_PROMPT = `You are a senior recipe developer for a healthy-cooking cookbook. Write ONE complete, cookable recipe as strict JSON (no prose, no markdown). The app checks every number: ingredient totals vs the amounts each step uses, step times vs the instructions, diet labels vs the ingredients. Inconsistent recipes are rejected.
 
-DISH FIDELITY
-- The recipe must be the requested dish. Keep its defining ingredients and technique (e.g. butter chicken keeps chicken, a yogurt-spice marinade, a tomato-based makhani gravy, kasuri methi). Only replace an ingredient when the user's diet/allergies require it or an approved swap says so.
-- Clinical guidelines are nutrition targets, not an ingredient list: meet them by adjusting this dish's own ingredients, fats and portions. Never bolt on foods the dish doesn't use (e.g. oats or chia on pasta) just because a guideline mentions them.
-- Never use placeholder or generic ingredients such as "protein of choice", "high-protein source", "complex carbs", "mixed vegetables", "spices", "seasoning" unless the dish genuinely uses that exact item.
+DISH
+- Keep the requested dish's defining ingredients and technique (butter chicken: chicken, spiced yogurt marinade, tomato makhani gravy, kasuri methi; Thai green curry: green curry paste, coconut milk, Thai basil, makrut lime leaves; tikka: grilled marinated pieces). Replace one only if the user's diet/allergies or an approved swap require it. No generic template, no foods the dish doesn't use.
+- No placeholders ("protein of choice", "mixed vegetables", "spices", "healthy oil").
 
 INGREDIENTS
-- List EVERY ingredient the cook touches, each whole or ground spice separately, plus oil/butter, salt, water/stock, acids and garnish.
-- "quantity" is exact and includes the unit: "300 g", "1/2 tsp", "1 medium", "120 ml". "to taste" is allowed only for salt and pepper.
-- "name" is only the ingredient (e.g. "Tomatoes", "Kasuri methi"); put cutting/preparation in "prep", not in the name.
-- "prep" says how it is cut or prepared ("finely chopped", "grated", "boneless, cut into 4 cm pieces"), or "".
-- "group" names the component it belongs to when the dish has components ("Marinade", "Gravy", "Tempering", "Garnish"), else "Main".
-- Quantities must match the number of servings.
+- "ref": unique id the steps use. "name": the product only, specific ("Light coconut milk", "Low-sodium soy sauce"); one option per name (alternatives go in substitutions); cutting goes in "prep".
+- "quantity" number + "unit": g/ml for produce, proteins, grains, liquids and anything over 3 tbsp; tsp/tbsp for small amounts; clove/stalk/leaf/sprig/piece only for garlic, lemongrass, leaves, whole spices, chillies. Salt gets a number plus "toTaste": true. "household" optional, size only ("1 medium" for 110 g onion; never repeat the amount or name).
+- "optional": true only for items used solely in optional steps; optional sides need their own ingredients.
+- "eatenFraction" (0-1) + "eatenFractionReason" only when part is not eaten (marinade left over, frying oil, drained whey, removed whole spices).
+- Name products safely: vegetarian/vegan dishes use "vegan red curry paste (no shrimp paste)", "mushroom-based vegetarian oyster sauce", hard cheese "(microbial rennet)"; gluten-free dishes use tamari / gluten-free soy sauce.
+- A main-dish serving is usually 300-550 g of food.
 
-METHOD
-- Steps in true cooking order from prep to serving. Simple dishes: 4-6 steps; complex dishes: 6-10+. Do not pad with filler steps.
-- Each step has 2-5 instructions. Each instruction is one concrete action with quantity, heat level or oven temperature, time, and a visual/texture doneness cue where relevant, e.g. "Cook on medium heat for 4-5 minutes until the onions are translucent; do not brown them."
-- Mention every ingredient by name in the step where it is used. Marination/soaking/resting times must be stated.
-- Every instruction that uses heat states the heat level and the time.
-- If an ingredient is used in more than one step, its listed quantity covers all uses and each step says how much it uses (e.g. "80 g of the yogurt"). Never refer to a "remaining" amount that was not explicitly reserved earlier.
-- Include the signature aromatics and finishing touches that define the dish's flavour; a cook who knows the dish should not notice anything missing.
+STEPS (true order; step 1 is the preparation step, heatLevel "None", covering the cutting/pressing/measuring in the "prep" notes)
+- "instructions": 2-5 actions saying what, how, how much, how long and the doneness cue ("Heat 1 tsp oil over medium heat. Add 2 tbsp curry paste and stir for 2-3 minutes until fragrant; do not let it brown.").
+- "ingredientsUsed": every ingredient the step adds/measures as {"ref","quantity","unit"}. Per ingredient, the sum over all steps MUST EQUAL the listed quantity (1/2 tbsp in step 1 + 1 tbsp in step 5 = list 1.5 tbsp). Food already measured earlier ("the marinated tofu") is not repeated. Garnishes count.
+- Amounts written in the text must equal ingredientsUsed (same number and unit). Never "a few", "some", "extra", "a splash"; never "the remaining X" unless part was measured earlier. Every food named must be listed, or made earlier ("produces": e.g. "red curry paste"); never also list a homemade component as bought.
+- "activeMinutes" hands-on; "passiveMinutes" unattended (marinate, soak, press, rest, covered simmer, bake) with "passiveLabel". Together they cover every time in the text; passive time only for waits the text states. Anything a step calls "soaked"/"toasted"/"marinated" needs an earlier step doing it, with its time.
+- "dependsOn": steps that must finish first, so independent prep can overlap waiting.
+- "heatLevel" None|Low|Medium-Low|Medium|Medium-High|High; "temperature" for oven/grill/oil. "visualCues": how to tell it's done. Meat, poultry, fish and seafood need the safe doneness cue or internal temperature (poultry 74°C/165°F).
+- "optional": true for steps that only make an optional side. "chefTip": step-specific technique. "commonMistakes": what to avoid and why. Never promise an exact yield ("about 80-100 g").
 
-SELF-CHECK BEFORE ANSWERING
-- Every listed ingredient is used in the method, and every ingredient used in the method is listed.
-- Split quantities add up. Times in steps add up to roughly prepTime + cookTime.
-- Nutrition, allergens and dietaryTags match the actual ingredients.
-- "chefTip" is a technique trick specific to the step. "commonMistakes" is what to avoid and why.
+HEALTH LANGUAGE
+- Conservative and factual. The app calculates nutrition: never state calories or nutrient numbers. Never claim cures, treats, prevents, detox, fat-burning, immunity/metabolism boosts, "superfood", "anti-inflammatory", "rich in antioxidants" or "heart-healthy". Coconut milk/oil, ghee, butter and cream are high in saturated fat.
+- Claim only the effect a swap really has (coconut oil has MORE saturated fat than vegetable oil; reduced-sodium tamari is still ~600 mg sodium per tbsp; jaggery and honey are added sugar). "healthSwaps" list each change with the amount used here; the app checks the claimed effect.
+- "dietaryTags": only diet labels the ingredients satisfy (Vegetarian, Vegan, Gluten-Free, Dairy-Free); no nutrient claims.
 
-NUTRITION
-- Realistic per-serving values for the exact quantities and servings you wrote. Respect the user's health goals (e.g. diabetes: no added sugar/honey; low sodium: under 400 mg).
+JSON:
+{"dish_name":"","subtitle":"","category":"Main Course","description":"2-3 sentences","healthier_explanation":"specific ingredient/method changes vs the traditional version","cuisine":"","meal_type":"","diet_type":"Vegan|Vegetarian|Pescatarian|Non-Vegetarian","servings":2,"difficulty":"Easy|Medium|Hard","spiceLevel":"Mild|Medium|Hot","visualDescription":"sauce colour/texture, visible ingredients, garnish, vessel",
+"ingredients":[{"ref":"","name":"","quantity":0,"unit":"","household":"","prep":"","group":"","optional":false,"toTaste":false}],
+"equipment":[""],"preparationNotes":[""],
+"steps":[{"stepNumber":1,"title":"","technique":"","heatLevel":"","temperature":"","activeMinutes":0,"passiveMinutes":0,"passiveLabel":"","dependsOn":[],"optional":false,"produces":"","ingredientsUsed":[{"ref":"","quantity":0,"unit":""}],"instructions":[""],"visualCues":[""],"chefTip":"","commonMistakes":""}],
+"chefTips":[""],"thingsToAvoid":[""],"substitutions":[{"ingredient":"a listed ingredient","substitute":"with amount","note":""}],"variations":[""],"servingSuggestions":[""],"storageInstructions":["how long, where"],"reheatingInstructions":[""],"allergens":[""],"dietaryTags":[""],
+"healthSwaps":[{"original":"full-fat coconut milk","replacement":"light coconut milk","quantity":300,"unit":"ml","reason":""}],"healthBenefits":["factual, no numbers"],"proteinBoost":"exact extra quantities, or empty"}`;
 
-JSON Schema:
-{
-  "dish_name": "string (no repeated words like 'Healthy Healthy')",
-  "subtitle": "string (one short line)",
-  "category": "string",
-  "description": "string (2-3 sentences)",
-  "healthier_explanation": "string (specific changes vs the traditional version and why they help the user's goals)",
-  "cuisine": "string",
-  "meal_type": "string",
-  "diet_type": "string",
-  "servings": number,
-  "prepTime": "string", "cookTime": "string", "totalTime": "string (include marination/resting)",
-  "difficulty": "Easy|Medium|Hard",
-  "spiceLevel": "Mild|Medium|Hot",
-  "calories": number,
-  "protein": "string e.g. 32g", "carbohydrates": "string", "fats": "string", "fiber": "string", "sugar": "string", "sodium": "string e.g. 380mg",
-  "ingredients": [{"name": "string", "quantity": "string", "prep": "string", "group": "string"}],
-  "equipment": ["string"],
-  "preparationNotes": ["string (make-ahead, soaking, marination planning)"],
-  "steps": [{
-    "title": "string",
-    "time": "string",
-    "heatLevel": "None|Low|Medium-Low|Medium|Medium-High|High|Oven <temp>",
-    "instructions": ["string"],
-    "chefTip": "string",
-    "commonMistakes": "string"
-  }],
-  "chefTips": ["string"],
-  "substitutions": [{"ingredient": "string", "substitute": "string", "note": "string"}],
-  "variations": ["string"],
-  "servingSuggestions": ["string"],
-  "storageInstructions": ["string"],
-  "reheatingInstructions": ["string"],
-  "allergens": ["string (from the actual ingredients, e.g. Dairy, Tree nuts)"],
-  "dietaryTags": ["string (only tags the ingredients truly satisfy)"],
-  "healthBenefits": ["string"],
-  "proteinBoost": "string (how to raise protein with exact extra quantities, or empty)"
-}`;
+// Prose that validation problems rarely concern; dropped from the repair
+// prompt to keep it inside the provider's per-request token limit.
+export const PROSE_FIELDS = ['chefTips', 'variations', 'servingSuggestions', 'storageInstructions', 'reheatingInstructions', 'healthBenefits', 'proteinBoost', 'preparationNotes', 'equipment', 'thingsToAvoid', 'subtitle'];
+const compactDraft = (draft) => {
+  const out = Object.fromEntries(Object.entries(draft).filter(([k]) => !PROSE_FIELDS.includes(k)));
+  out.steps = (draft.steps || []).map(({ chefTip, commonMistakes, ...rest }) => rest);
+  return out;
+};
 
-const buildUserPrompt = (dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure, feedback) => {
+const buildUserPrompt = (dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure, feedback, previousDraft) => {
   const traditional = recipeStructure.primaryIngredients || [];
   const lines = [`Write the complete healthy recipe for: "${dishName}"`, ''];
 
@@ -113,7 +85,7 @@ const buildUserPrompt = (dishName, inputs, optimizationPlan, evidenceSummary, re
     `Servings: ${inputs.servings || 2}`,
     '',
     'CLINICAL GUIDELINES:',
-    evidenceSummary || 'None',
+    previousDraft ? 'Already applied in the draft below.' : evidenceSummary || 'None',
     '',
     'APPROVED INGREDIENT SWAPS:',
     JSON.stringify(optimizationPlan?.swaps || []),
@@ -121,7 +93,20 @@ const buildUserPrompt = (dishName, inputs, optimizationPlan, evidenceSummary, re
     JSON.stringify(optimizationPlan?.methodAdjustments || [])
   );
 
-  if (feedback) {
+  if (feedback && previousDraft) {
+    // Repair, not regenerate: the model fixes the listed problems in its own
+    // draft, so parts that were already correct are not rewritten (and broken).
+    lines.push(
+      '',
+      'YOUR PREVIOUS DRAFT (JSON) FAILED THESE AUTOMATED CHECKS:',
+      feedback,
+      '',
+      'Return the corrected recipe JSON. Fix every problem above (adjust quantities, ingredientsUsed, instruction text, times or ingredients as needed so they agree); keep everything else unchanged.',
+      `Fields left out of the draft below (${PROSE_FIELDS.join(', ')}, and each step's chefTip/commonMistakes) are kept automatically: leave them out of your answer too unless a problem is about them.`,
+      'PREVIOUS DRAFT:',
+      JSON.stringify(compactDraft(previousDraft))
+    );
+  } else if (feedback) {
     lines.push('', `YOUR PREVIOUS DRAFT WAS REJECTED. Fix these problems: ${feedback}`);
   }
 
@@ -136,7 +121,8 @@ const callGroq = async (model, apiKey, userPrompt) => {
       { role: 'user', content: userPrompt }
     ],
     temperature: 0.4,
-    max_tokens: 16000,
+    // Recipes use about 3,500 output tokens (incl. reasoning); 8,000 leaves headroom.
+    max_tokens: 8000,
     response_format: { type: 'json_object' }
   };
   if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'medium';
@@ -163,14 +149,14 @@ const callGroq = async (model, apiKey, userPrompt) => {
  * Generates the full recipe in one call.
  * Returns null when no model could produce a parseable, untruncated recipe.
  */
-export const buildRecipeBlueprint = async (dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure = {}, feedback = '') => {
+export const buildRecipeBlueprint = async (dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure = {}, feedback = '', previousDraft = null) => {
   const apiKey = process.env.GROQ_API_KEY_ARCHITECT || process.env.GROQ_API_KEY;
   if (!apiKey) {
     logger.warn('GROQ_API_KEY is not defined. Cannot generate recipe.');
     return null;
   }
 
-  const userPrompt = buildUserPrompt(dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure, feedback);
+  const userPrompt = buildUserPrompt(dishName, inputs, optimizationPlan, evidenceSummary, recipeStructure, feedback, previousDraft);
 
   for (const model of [...new Set([GROQ_RECIPE_MODEL, GROQ_FAST_MODEL])]) {
     for (let rateLimitRetries = 0; ; rateLimitRetries++) {
@@ -183,7 +169,7 @@ export const buildRecipeBlueprint = async (dishName, inputs, optimizationPlan, e
 
         const waitMs = rateLimitWaitMs(error);
         if (waitMs === null || rateLimitRetries >= MAX_RATE_LIMIT_RETRIES) break;
-        logger.warn(`Rate limited on ${model}; waiting ${Math.ceil(waitMs / 1000)}s before retrying.`);
+        logger.warn(`${model}: retrying in ${Math.ceil(waitMs / 1000)}s (${/json/i.test(detail) ? 'invalid JSON' : 'rate limit'}).`);
         await new Promise(resolve => setTimeout(resolve, waitMs));
       }
     }
@@ -197,6 +183,15 @@ const MAX_RATE_LIMIT_WAIT_MS = 60000;
 
 // Groq free tier has a low tokens-per-minute cap; waiting is better than failing the user's request.
 const rateLimitWaitMs = (error) => {
+  // Groq's free tier rejects a normal-sized request as "Request too large"
+  // (413, with an inflated "Requested" figure) while the per-minute budget is
+  // busy from earlier calls. Measured: the same ~1,900-token prompt is
+  // accepted once a fresh minute starts, so wait for the window to reset.
+  const message = error.response?.data?.error?.message || '';
+  if (/request too large/i.test(message)) return 61000;
+  // JSON mode occasionally rejects a generation; the same request usually
+  // succeeds on a second try.
+  if (/failed to (generate|validate) json/i.test(message)) return 1500;
   if (error.response?.status !== 429) return null;
   const header = Number(error.response.headers?.['retry-after']);
   const fromMessage = Number((error.response.data?.error?.message || '').match(/try again in ([\d.]+)s/)?.[1]);

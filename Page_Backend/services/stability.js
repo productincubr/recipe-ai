@@ -39,32 +39,57 @@ const generateWithGemini = async (dishName, details) => {
   }
 
   const keyIngredients = keyIngredientsOf(details);
-  const prompt = `Professional food photography of ${dishName}${details.cuisine ? ` (${details.cuisine} cuisine)` : ''}${keyIngredients ? `, made with ${keyIngredients}` : ''}. Show exactly this dish, beautifully plated, warm natural light, photorealistic, appetizing. No text, no people.`;
+  const visual = visualOf(details);
+  const avoid = avoidOf(details);
+  const prompt = `Professional food photography of ${dishName}${details.cuisine ? ` (${details.cuisine} cuisine)` : ''}${keyIngredients ? `, made with ${keyIngredients}` : ''}.${visual ? ` ${visual}.` : ''} Show exactly this dish, beautifully plated, warm natural light, photorealistic, appetizing.${avoid ? ` Must not show: ${avoid}.` : ''} No text, no people.`;
 
   logger.info(`Generating image for "${dishName}" with Gemini (${GEMINI_IMAGE_MODEL})...`);
-  try {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ['IMAGE'] }
-      },
-      { httpsAgent, timeout: 90000, headers: { 'Content-Type': 'application/json' } }
-    );
-    const image = response.data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)?.inlineData;
-    if (!image) throw new Error('No image returned.');
-    logger.info('Gemini image generated successfully.');
-    return `data:${image.mimeType || 'image/png'};base64,${image.data}`;
-  } catch (error) {
-    logger.error(`Gemini image generation failed (${error.response?.status || 'no status'}): ${error.response?.data?.error?.message || error.message}`);
-    return null;
+  // One retry for a temporary outage (503); quota errors (429) won't clear by retrying.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${apiKey}`,
+        {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['IMAGE'] }
+        },
+        { httpsAgent, timeout: 90000, headers: { 'Content-Type': 'application/json' } }
+      );
+      const image = response.data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)?.inlineData;
+      if (!image) throw new Error('No image returned.');
+      logger.info('Gemini image generated successfully.');
+      return `data:${image.mimeType || 'image/png'};base64,${image.data}`;
+    } catch (error) {
+      const status = error.response?.status;
+      logger.error(`Gemini image generation failed (${status || 'no status'}): ${error.response?.data?.error?.message || error.message}`);
+      if (status !== 503 || attempt === 2) return null;
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
   }
+  return null;
 };
 
-const keyIngredientsOf = (details) =>
-  Array.isArray(details.ingredients)
+// The validated recipe carries an image brief (details.imageBrief): its main
+// ingredients by weight, its colour and what must NOT appear (e.g. "green
+// curry" for a red curry), so the photo shows this dish and not a lookalike.
+const briefOf = (details) => details?.details?.imageBrief || details?.imageBrief || null;
+
+const keyIngredientsOf = (details) => {
+  const brief = briefOf(details);
+  if (brief?.mainIngredients?.length) return brief.mainIngredients.join(', ');
+  return Array.isArray(details.ingredients)
     ? details.ingredients.slice(0, 6).map((i) => i.name).filter(Boolean).join(', ')
     : '';
+};
+
+const visualOf = (details) => {
+  const brief = briefOf(details);
+  return [brief?.visualDescription, brief?.colors?.length ? `The dish is distinctly ${brief.colors.join(' and ')} in colour` : '']
+    .filter(Boolean)
+    .join('. ');
+};
+
+const avoidOf = (details) => (briefOf(details)?.avoid || []).join(', ');
 
 const generateWithStability = async (dishName, details) => {
   const apiKey = process.env.STABILITY_API_KEY;
@@ -79,10 +104,12 @@ const generateWithStability = async (dishName, details) => {
   const url = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image';
 
   const keyIngredients = keyIngredientsOf(details);
+  const avoid = avoidOf(details);
 
   const grounding = [
     details.cuisine ? `${details.cuisine} cuisine` : '',
     keyIngredients ? `made with ${keyIngredients}` : '',
+    visualOf(details),
     details.description || '',
   ].filter(Boolean).join('. ');
 
@@ -96,7 +123,7 @@ const generateWithStability = async (dishName, details) => {
             weight: 1.0
           },
           {
-            text: `blurry, low quality, dark, messy, human, hands, fingers, face, text, logo, watermark, distorted, raw meat, unappetizing`,
+            text: `blurry, low quality, dark, messy, human, hands, fingers, face, text, logo, watermark, distorted, raw meat, unappetizing${avoid ? `, ${avoid}` : ''}`,
             weight: -1.0
           }
         ],

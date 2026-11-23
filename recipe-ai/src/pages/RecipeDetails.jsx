@@ -23,7 +23,12 @@ import {
   Users,
   ChefHat,
   Timer,
+  ShieldCheck,
+  AlertTriangle,
+  Thermometer,
+  Eye,
 } from 'lucide-react';
+import { stepIngredientUses, qualityBadge, validationNotes, nutritionStatus } from '../utils/recipeDisplay';
 import { downloadRecipePdf } from '../utils/recipePdf';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import { getRecipeImage } from '../utils/recipeFallbackImage';
@@ -36,6 +41,11 @@ const NON_VEG_KEYWORDS = [
 
 function isNonVegRecipe(recipe) {
   if (/non[\s-]?veg/i.test(recipe.diet_type || '')) return true;
+  // Validated recipes carry a diet type derived from their ingredients; eggs
+  // count as non-vegetarian for the Indian veg/non-veg mark.
+  if (recipe.details?.validation && /^(vegan|vegetarian|pescatarian)$/i.test(recipe.diet_type || '')) {
+    return /pescatarian/i.test(recipe.diet_type) || (recipe.details.allergens || []).some((a) => /^egg/i.test(a));
+  }
   const text = [
     recipe.dish_name,
     ...(Array.isArray(recipe.ingredients) ? recipe.ingredients.map((i) => i.name) : []),
@@ -212,6 +222,8 @@ export default function RecipeDetails() {
         ingredientGroups: groupIngredients(recipe.ingredients),
         imageSrc: recipe.image_url || getRecipeImage(recipe),
         nonVeg: isNonVegRecipe(recipe),
+        validationNotes: validationNotes(recipe.details).items,
+        validationFailed: validationNotes(recipe.details).failed,
       });
     } catch (err) {
       console.error('PDF download failed:', err);
@@ -319,6 +331,15 @@ export default function RecipeDetails() {
                 <StatPill icon={Dumbbell} iconColor="text-blue-500" value={recipe.protein} caption="Protein" />
               )}
             </div>
+            {details.timingNote && <p className="mt-3 text-xs text-ink-muted">{details.timingNote}</p>}
+            {qualityBadge(details) && (
+              <p
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-olive/30 bg-olive-soft px-3 py-1 text-xs font-semibold text-olive-deep"
+                title="Every ingredient, quantity, time, diet label and nutrient was checked automatically"
+              >
+                <ShieldCheck size={14} /> {qualityBadge(details).label}
+              </p>
+            )}
           </div>
 
           {/* Right Image */}
@@ -366,12 +387,19 @@ export default function RecipeDetails() {
 
         <NutritionPanel recipe={recipe} details={details} />
 
+        <ValidationNotice details={details} />
+
         {recipe.healthier_explanation && (
           <div className="bg-cream-100 border border-cream-300 rounded-2xl p-5 mb-8 flex gap-4">
             <Sparkles className="text-olive shrink-0 h-6 w-6" />
             <p className="text-ink-soft text-sm leading-relaxed whitespace-pre-line">
               <strong className="text-ink block mb-1">Why it's healthier</strong>
               {recipe.healthier_explanation}
+              {details.healthComparisons?.some((c) => c.quantified) && (
+                <span className="mt-2 block space-y-1 text-xs text-ink-soft">
+                  {details.healthComparisons.filter((c) => c.quantified).map((c, i) => <span key={i} className="block">• {c.summary}</span>)}
+                </span>
+              )}
             </p>
           </div>
         )}
@@ -447,6 +475,7 @@ export default function RecipeDetails() {
                     <li key={i} className="flex items-baseline justify-between gap-4 py-3 text-sm">
                       <span className="text-ink font-medium">
                         {ing.name}
+                        {ing.optional && <span className="ml-1 text-xs font-normal text-ink-muted">(optional)</span>}
                         {ing.prep && <span className="block text-xs font-normal text-ink-muted mt-0.5">{ing.prep}</span>}
                       </span>
                       <span className="text-ink-muted text-right shrink-0 max-w-[45%]">{ing.qty || ing.quantity}</span>
@@ -503,9 +532,26 @@ export default function RecipeDetails() {
                               <Flame size={11} /> {step.heatLevel}
                             </span>
                           )}
+                          {step.temperature && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                              <Thermometer size={11} /> {step.temperature}
+                            </span>
+                          )}
+                          {step.optional && (
+                            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-cream-100 text-ink-muted border border-cream-300">
+                              Optional
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
+
+                    {stepIngredientUses(recipe, step).length > 0 && (
+                      <p className="mb-2 text-xs text-ink-muted leading-relaxed">
+                        <span className="font-semibold text-ink-soft">Uses: </span>
+                        {stepIngredientUses(recipe, step).join(' · ')}
+                      </p>
+                    )}
 
                     {typeof step === 'object' && step.instructions && (
                       <ol className="list-decimal ml-5 mt-1 space-y-2 text-ink-soft text-sm leading-relaxed">
@@ -515,6 +561,13 @@ export default function RecipeDetails() {
                       </ol>
                     )}
                     {typeof step === 'string' && <p className="mt-1 text-ink-soft text-sm">{step}</p>}
+
+                    {typeof step === 'object' && step.visualCues?.length > 0 && (
+                      <p className="mt-2 flex gap-1.5 text-xs text-ink-soft leading-relaxed">
+                        <Eye size={13} className="text-ink-muted shrink-0 mt-0.5" />
+                        <span><span className="font-semibold">Look for: </span>{step.visualCues.join('; ')}</span>
+                      </p>
+                    )}
 
                     {typeof step === 'object' && step.chefTip && (
                       <div className="mt-3 flex gap-2 rounded-xl bg-olive-soft/60 border border-olive/20 px-3 py-2">
@@ -571,16 +624,20 @@ function NutritionPanel({ recipe, details }) {
     ['Protein', recipe.protein],
     ['Carbs', details.nutrition?.carbohydrates],
     ['Fat', recipe.fats],
+    ['Sat. fat', details.nutrition?.saturatedFat],
     ['Fiber', recipe.fiber],
     ['Sugar', details.nutrition?.sugar],
     ['Sodium', recipe.sodium],
   ].filter(([, value]) => value);
 
   if (items.length === 0) return null;
+  const meta = details.nutritionMeta;
   return (
     <div className="mb-8">
-      <p className="text-sm font-semibold text-olive-dark mb-3">Nutrition per serving</p>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+      <p className="text-sm font-semibold text-olive-dark mb-3">
+        Nutrition per serving <span className="font-normal text-ink-muted">({nutritionStatus(details)})</span>
+      </p>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-2">
         {items.map(([label, value]) => (
           <div key={label} className="rounded-2xl bg-cream-100 px-3 py-3 text-center">
             <p className="text-sm font-semibold text-ink">{value}</p>
@@ -588,6 +645,24 @@ function NutritionPanel({ recipe, details }) {
           </div>
         ))}
       </div>
+      {meta?.note && <p className="mt-2 text-xs text-ink-muted leading-relaxed">{meta.note}</p>}
+    </div>
+  );
+}
+
+// Problems the validation found but could not fix, shown rather than hidden.
+function ValidationNotice({ details }) {
+  const { failed, items: messages } = validationNotes(details);
+  if (!messages.length) return null;
+  return (
+    <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <p className="flex items-center gap-2 font-semibold mb-1">
+        <AlertTriangle size={15} />
+        {failed ? 'This recipe did not pass every accuracy check' : 'Some details could not be fully verified'}
+      </p>
+      <ul className="list-disc ml-5 space-y-1 text-xs leading-relaxed">
+        {messages.map((m, i) => <li key={i}>{m}</li>)}
+      </ul>
     </div>
   );
 }
@@ -611,6 +686,8 @@ function RecipeExtras({ details }) {
   const hasTags = details.allergens?.length > 0 || details.dietaryTags?.length > 0;
   const cards = [
     { title: 'Chef tips', icon: Sparkles, items: details.chefTips },
+    { title: 'Things to avoid', icon: Ban, items: details.thingsToAvoid },
+    { title: 'Food safety', icon: ShieldCheck, items: details.foodSafety },
     { title: 'Variations', icon: Shuffle, items: details.variations },
     { title: 'Serving suggestions', icon: UtensilsCrossed, items: details.servingSuggestions },
     { title: 'Storage', icon: Refrigerator, items: details.storageInstructions },
@@ -635,6 +712,7 @@ function RecipeExtras({ details }) {
                   {sub.ingredient} <span className="text-ink-muted font-normal">→</span> {sub.substitute}
                 </p>
                 {sub.note && <p className="mt-1 text-ink-soft leading-relaxed">{sub.note}</p>}
+                {sub.warning && <p className="mt-1 text-xs font-medium text-amber-700">{sub.warning}</p>}
               </div>
             ))}
           </div>
@@ -657,8 +735,14 @@ function RecipeExtras({ details }) {
               Contains: {details.allergens.join(', ')}
             </span>
           )}
+          {details.allergenInfo?.mayContain?.length > 0 && (
+            <span className="rounded-full bg-amber-50 border border-amber-100 px-3 py-1 font-medium text-amber-700">
+              May contain (brand-dependent): {details.allergenInfo.mayContain.join(', ')}
+            </span>
+          )}
         </div>
       )}
+      {details.dietNote && <p className="text-xs text-amber-700">{details.dietNote}</p>}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 // Page_Backend/services/recipeValidator.js
 import logger from '../config/logger.js';
+import { withoutExclusions } from './recipeConsistency.js';
+import { ingredientFacts } from './dietSafety.js';
 
 // Valid goals, medical conditions, allergies, dietary preferences, equipment, cuisines
 export const VALID_GOALS = [
@@ -209,7 +211,32 @@ export const checkPreContradictions = (inputs) => {
 
 /* Modular Validator Subunits */
 
+// Allergen -> database allergen keys. Checked from each ingredient's record
+// (including optional ingredients), so "eggplant" is not egg and "coconut
+// milk" is not dairy, while brand-dependent products count as "may contain".
+const ALLERGY_KEYS = {
+  Peanut: ['peanuts'], 'Tree Nut': ['tree nuts'], Dairy: ['milk'], Egg: ['egg'], Soy: ['soy'],
+  Fish: ['fish'], Shellfish: ['shellfish'], Sesame: ['sesame'], Wheat: ['wheat'], Gluten: ['wheat'],
+};
+
 export const validateAllergiesModule = (recipe, allergies) => {
+  if (allergies.length > 0 && !allergies.includes('None') && allergies.every((a) => ALLERGY_KEYS[a])) {
+    const errors = [];
+    for (const allergy of allergies) {
+      const keys = ALLERGY_KEYS[allergy];
+      for (const ing of recipe.ingredients || []) {
+        const facts = ingredientFacts(ing);
+        const hit = keys.find((k) => facts.allergens.has(k) || facts.mayContain.has(k)) || (allergy === 'Gluten' && facts.glutenCrossContact ? 'gluten' : null);
+        if (hit) errors.push(`Allergy violation (${allergy}): "${ing.name}" ${facts.allergens.has(hit) ? 'contains' : 'may contain'} ${hit}`);
+      }
+    }
+    return { isValid: errors.length === 0, errors };
+  }
+  return validateAllergiesByText(recipe, allergies);
+};
+
+// Text-based fallback for allergens outside the database's allergen list.
+const validateAllergiesByText = (recipe, allergies) => {
   const errors = [];
   const ingredientsList = (recipe.ingredients || []).map(ing => (ing.name || '').toLowerCase());
   const stepsList = (recipe.steps || []).map(step => {
@@ -218,7 +245,8 @@ export const validateAllergiesModule = (recipe, allergies) => {
     const insts = (step.instructions || []).map(i => i.toLowerCase()).join(' ');
     return `${title} ${insts}`;
   });
-  const allText = [...ingredientsList, ...stepsList].join(' ');
+  // What an ingredient says it is NOT ("no shrimp paste", "dairy-free") doesn't count.
+  const allText = [...ingredientsList, ...stepsList].map(t => withoutExclusions(t, false)).join(' ');
 
   if (allergies.length > 0 && !allergies.includes('None')) {
     for (const allergy of allergies) {
@@ -325,7 +353,30 @@ export const validateDietModule = (recipe, dietaryPreferences) => {
     const insts = (step.instructions || []).map(i => i.toLowerCase()).join(' ');
     return `${title} ${insts}`;
   });
-  const allText = [...ingredientsList, ...stepsList].join(' ');
+  // Plant-based labels ("vegan fish sauce", "mushroom-based shrimp paste") are not animal products.
+  const allText = [...ingredientsList, ...stepsList].map(t => withoutExclusions(t, dietaryPreferences !== 'Gluten Free')).join(' ');
+
+  // Diets the ingredient database describes are checked from each ingredient's
+  // record (substring matching here once flagged "eggplant" as egg and
+  // "coconut cream" as dairy). Jain rules below stay text-based.
+  const FROM_DATABASE = {
+    Vegan: ['meat', 'poultry', 'fish', 'shellfish', 'dairy', 'egg', 'honey'],
+    Vegetarian: ['meat', 'poultry', 'fish', 'shellfish'],
+    Pescatarian: ['meat', 'poultry'],
+  };
+  if (FROM_DATABASE[dietaryPreferences] || dietaryPreferences === 'Gluten Free' || dietaryPreferences === 'Dairy Free') {
+    for (const ing of recipe.ingredients || []) {
+      if (ing.optional) continue;
+      const facts = ingredientFacts(ing);
+      const animal = FROM_DATABASE[dietaryPreferences]?.find((k) => facts.animal.has(k))
+        || (dietaryPreferences === 'Dairy Free' && facts.animal.has('dairy') ? 'dairy' : null);
+      if (animal) errors.push(`${dietaryPreferences} restriction violation: "${ing.name}" is ${animal === 'egg' ? 'an egg product' : animal}`);
+      if (dietaryPreferences === 'Gluten Free' && (facts.gluten || facts.glutenCrossContact)) {
+        errors.push(`Gluten Free restriction violation: "${ing.name}" ${facts.gluten ? 'contains gluten' : 'may contain gluten unless certified gluten-free'}`);
+      }
+    }
+    return { isValid: errors.length === 0, errors };
+  }
 
   if (dietaryPreferences && dietaryPreferences !== 'No Preference') {
     if (dietaryPreferences === 'Vegan') {

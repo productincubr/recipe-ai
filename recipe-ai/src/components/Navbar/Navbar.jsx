@@ -1,12 +1,15 @@
-import { NavLink } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { Link, NavLink } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { Sparkles, UserRound, Menu } from 'lucide-react'
 import { navLinks } from '../../data/navigation'
+import Logo from '../Sidebar/Logo'
 
 /**
  * Top navigation bar for the content area.
- * Left: primary links. Right: Demo + Sign in actions.
+ * Left: hamburger, plus the logo while the menu is closed (the sidebar shows
+ * it otherwise). Middle: primary links, centred when the logo is shown.
+ * Right: Demo + Sign in actions.
  *
  * @param {() => void} [onMenuClick] - toggles the sidebar: collapses/restores the
  *   fixed sidebar on desktop, opens/closes the drawer below lg.
@@ -23,23 +26,44 @@ export default function Navbar({
 }) {
   return (
     <header className="flex items-center justify-between gap-4 px-5 py-5 sm:px-8">
-      {/* Left cluster: hamburger + primary links */}
-      <div className="flex items-center gap-4 md:gap-8">
-        {/* Hamburger — collapses the sidebar on desktop, opens the drawer below lg */}
-        <button
-          type="button"
-          ref={menuButtonRef}
-          onClick={onMenuClick}
-          aria-label={menuOpen ? 'Hide menu' : 'Show menu'}
-          aria-expanded={menuOpen}
-          aria-controls={menuControls}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-cream-300 bg-cream-100 text-ink-soft"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      {/* Left cluster: hamburger + primary links (+ logo while the menu is closed) */}
+      <div className={clsx('flex items-center gap-4 md:gap-8', !menuOpen && 'flex-1')}>
+        <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+          {/* Hamburger — collapses the sidebar on desktop, opens the drawer below lg */}
+          <button
+            type="button"
+            ref={menuButtonRef}
+            onClick={onMenuClick}
+            aria-label={menuOpen ? 'Hide menu' : 'Show menu'}
+            aria-expanded={menuOpen}
+            aria-controls={menuControls}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-cream-300 bg-cream-100 text-ink-soft"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-        {/* Primary links (hidden on small screens) */}
-        <nav className="hidden items-center gap-8 md:flex">
+          {/* The sidebar carries the logo while it is open; show it here only
+              when the menu is closed, so there are never two logos on screen. */}
+          <AnimatePresence initial={false}>
+            {!menuOpen && (
+              <motion.div
+                key="navbar-logo"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                <Link to="/" aria-label="LEANMENU home">
+                  <Logo wordmarkClassName="hidden sm:inline" />
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Primary links (hidden on small screens); centred in the free space
+            when the logo takes the left edge */}
+        <nav className={clsx('hidden items-center gap-8 md:flex', !menuOpen && 'flex-1 justify-center')}>
           {navLinks.map((link) => (
             <NavLink
               key={link.label}

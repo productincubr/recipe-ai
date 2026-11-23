@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { stepIngredientUses, qualityBadge, nutritionStatus } from './recipeDisplay';
 
 // Builds the recipe PDF by drawing it directly (text, boxes, photo) instead of
 // screenshotting the page, so the layout is clean, the text stays sharp and
@@ -119,6 +120,8 @@ export async function downloadRecipePdf({
   ingredientGroups = [],
   imageSrc,
   nonVeg = false,
+  validationNotes = [],
+  validationFailed = false,
 }) {
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = pdf.internal.pageSize.getWidth();
@@ -332,6 +335,9 @@ export async function downloadRecipePdf({
     [recipe.servings, 'Servings'],
     [recipe.difficulty, 'Difficulty'],
   ].filter(([v]) => v), { cols: 5 });
+  if (details.timingNote) paragraph(details.timingNote, { size: 8.5, color: C.inkMuted, gapAfter: 8 });
+  const quality = qualityBadge(details);
+  if (quality) chips([{ text: quality.label, bg: C.oliveSoft, color: C.oliveDeep }]);
 
   if (badges.length) {
     label('Made for you');
@@ -343,13 +349,29 @@ export async function downloadRecipePdf({
     [recipe.protein, 'Protein'],
     [details.nutrition?.carbohydrates, 'Carbs'],
     [recipe.fats, 'Fat'],
+    [details.nutrition?.saturatedFat, 'Sat. fat'],
     [recipe.fiber, 'Fiber'],
     [details.nutrition?.sugar, 'Sugar'],
     [recipe.sodium, 'Sodium'],
   ].filter(([v]) => v);
   if (nutrition.length) {
-    label('Nutrition per serving');
-    tiles(nutrition, { cols: Math.min(nutrition.length, 7), h: 44, bg: C.oliveSoft });
+    label(`Nutrition per serving (${nutritionStatus(details)})`);
+    tiles(nutrition, { cols: Math.min(nutrition.length, 8), h: 44, bg: C.oliveSoft, gapAfter: details.nutritionMeta?.note ? 8 : 16 });
+    if (details.nutritionMeta?.note) {
+      paragraph(details.nutritionMeta.note, { size: 8, color: C.inkMuted, gapAfter: 14 });
+    }
+  }
+
+  if (validationNotes.length) {
+    box({
+      bg: C.amberSoft,
+      border: [253, 230, 138],
+      blocks: [
+        { text: validationFailed ? 'This recipe did not pass every accuracy check' : 'Some details could not be fully verified', style: 'bold', size: 10, color: C.amberText, gap: 4 },
+        ...validationNotes.map((note) => ({ text: `•  ${clean(note)}`, size: 9, color: C.inkSoft, gap: 3 })),
+      ],
+      gapAfter: 16,
+    });
   }
 
   if (clean(recipe.healthier_explanation)) {
@@ -358,7 +380,8 @@ export async function downloadRecipePdf({
       border: C.cream300,
       blocks: [
         { text: "Why it's healthier", style: 'bold', size: 10.5, color: C.ink, gap: 4 },
-        { text: recipe.healthier_explanation, size: 9.5 },
+        { text: recipe.healthier_explanation, size: 9.5, gap: 4 },
+        ...(details.healthComparisons || []).filter((c) => c.quantified).map((c) => ({ text: `\u2022  ${clean(c.summary)}`, size: 8.5, color: C.inkMuted, gap: 2 })),
       ],
       gapAfter: 16,
     });
@@ -416,7 +439,7 @@ export async function downloadRecipePdf({
         const prepInline = prep && lastNameW + 8 + pdf.getTextWidth(prep) <= nameW;
         const prepLines = prep && !prepInline ? wrap(prep, nameW) : [];
         font('normal', 10, C.inkSoft);
-        const qtyLines = wrap(ing.qty || ing.quantity || '', qtyW);
+        const qtyLines = wrap(`${ing.qty || ing.quantity || ''}${ing.optional ? ' (optional)' : ''}`, qtyW);
         const h = Math.max(nameLines.length * 14 + prepLines.length * 12, qtyLines.length * 14) + 9;
         ensure(h);
         let cy = y + 5;
@@ -481,10 +504,15 @@ export async function downloadRecipePdf({
           [
             step.time ? { text: `Time: ${step.time}`, bg: C.skySoft, color: C.skyText } : null,
             step.heatLevel && step.heatLevel !== 'None' ? { text: `Heat: ${step.heatLevel}`, bg: C.amberSoft, color: C.amberText } : null,
+            step.temperature ? { text: `Temp: ${step.temperature}`, bg: C.amberSoft, color: C.amberText } : null,
+            step.optional ? { text: 'Optional', bg: C.cream100, color: C.inkMuted } : null,
           ].filter(Boolean),
           { x0: tx, width: tw, gapAfter: 8 }
         );
       }
+
+      const uses = stepIngredientUses(recipe, step);
+      if (uses.length) paragraph(`Uses: ${uses.join('  \u00b7  ')}`, { x: tx, width: tw, size: 8.5, color: C.inkMuted, gapAfter: 6 });
 
       const instructions = isText ? [step] : step.instructions || [];
       instructions.forEach((inst, k) => {
@@ -504,6 +532,9 @@ export async function downloadRecipePdf({
         y += 3;
       });
 
+      if (!isText && step.visualCues?.length) {
+        paragraph(`Look for: ${step.visualCues.map(clean).join('; ')}`, { x: tx, width: tw, size: 9, color: C.inkSoft, gapAfter: 4 });
+      }
       if (!isText && clean(step.chefTip)) {
         y += 2;
         box({
@@ -543,6 +574,7 @@ export async function downloadRecipePdf({
         blocks: [
           { text: `${clean(s.ingredient)}  ->  ${clean(s.substitute)}`, style: 'bold', size: 10, color: C.ink, gap: 3 },
           { text: s.note, size: 9 },
+          { text: s.warning, size: 8.5, color: C.amberText },
         ],
       })
     );
@@ -550,6 +582,8 @@ export async function downloadRecipePdf({
 
   const extras = [
     ['Chef tips', details.chefTips],
+    ['Things to avoid', details.thingsToAvoid],
+    ['Food safety', details.foodSafety],
     ['Variations', details.variations],
     ['Serving suggestions', details.servingSuggestions],
     ['Storage', details.storageInstructions],
@@ -569,8 +603,10 @@ export async function downloadRecipePdf({
   const tagChips = [
     ...(details.dietaryTags || []).map((t) => ({ text: t, bg: C.oliveSoft, color: C.oliveDeep })),
     ...(details.allergens?.length ? [{ text: `Contains: ${details.allergens.join(', ')}`, bg: C.roseSoft, color: C.roseText }] : []),
+    ...(details.allergenInfo?.mayContain?.length ? [{ text: `May contain (brand-dependent): ${details.allergenInfo.mayContain.join(', ')}`, bg: C.amberSoft, color: C.amberText }] : []),
   ];
   if (tagChips.length) chips(tagChips);
+  if (details.dietNote) paragraph(details.dietNote, { size: 8.5, color: C.amberText, gapAfter: 8 });
 
   // Closing banner only if it fits \u2014 never start a page just for it.
   if (y + 42 <= BOTTOM) {

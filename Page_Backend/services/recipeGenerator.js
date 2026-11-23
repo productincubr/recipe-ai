@@ -1,25 +1,20 @@
 import logger from '../config/logger.js';
 import dotenv from 'dotenv';
-import { validateGeneratedRecipe, validateDishIdentityModule, validateDietModule } from './recipeValidator.js';
+import { validateGeneratedRecipe } from './recipeValidator.js';
 import { understandRecipe } from './recipeUnderstanding.js';
 import { retrieveEvidence } from './evidenceRetrieval.js';
 import { planOptimizations } from './optimizationPlanner.js';
-import { buildRecipeBlueprint } from './recipeArchitect.js';
+import { buildRecipeBlueprint, PROSE_FIELDS } from './recipeArchitect.js';
 import { reviewRecipeSteps } from './recipeReviewer.js';
+import { validateAndCorrectRecipe } from './recipeConsistency.js';
 
 dotenv.config();
 
 const HEALTH_NOTE = "Health Note: These recipes are intended for general wellness and educational purposes. They are not medical advice. If you have a medical condition, are pregnant, or have significant dietary restrictions, consult a qualified healthcare professional before making major dietary changes.";
 
 const MAX_ATTEMPTS = 3;
-const MIN_INGREDIENTS = 6;
-const MIN_STEPS = 3;
-const MIN_TOTAL_INSTRUCTIONS = 8;
-const MIN_INSTRUCTIONS_PER_STEP = 1;
-const MAX_UNUSED_INGREDIENTS = 2;
-
-const MIN_CALORIES = 80;
-const MAX_CALORIES = 1500;
+const MIN_INGREDIENTS = 5;
+const MAX_FEEDBACK_ITEMS = 14;
 
 const PLACEHOLDER_PATTERNS = [
   /protein (source|of choice)/i,
@@ -28,179 +23,125 @@ const PLACEHOLDER_PATTERNS = [
   /(mixed|seasonal) (fresh )?(seasonal )?vegetables/i,
   /\bof (your )?choice\b/i,
   /^spices$/i,
-  /^seasoning$/i
+  /^seasonings?$/i,
+  /^healthy (oil|fat)s?$/i,
 ];
-const VAGUE_QUANTITY = /^(some|a few|as needed|as required|handful)$/i;
-
-const NAME_FILLER_WORDS = new Set(['fresh', 'thick', 'low', 'fat', 'low-fat', 'small', 'medium', 'large', 'chopped', 'powder', 'whole', 'ground', 'optional', 'with']);
-
-const stepsText = (steps) =>
-  steps
-    .map(s => `${s.title || ''} ${(s.instructions || []).join(' ')}`)
-    .join(' ')
-    .toLowerCase();
-
-const isIngredientUsed = (ingredientName, text) => {
-  const tokens = ingredientName
-    .toLowerCase()
-    .split(/[^a-z]+/)
-    .filter(t => t.length > 2 && !NAME_FILLER_WORDS.has(t));
-  if (tokens.length === 0) return true;
-  return tokens.some(t => text.includes(t) || text.includes(t.replace(/s$/, '')));
-};
 
 /**
- * Returns a list of human-readable problems that make the recipe incomplete.
- * The list is fed back to the model on the next attempt.
+ * Problems the deterministic validator doesn't cover: missing top-level
+ * fields and placeholder ingredients. Fed back to the model with the
+ * validator's hard issues.
  */
-const findCompletenessProblems = (recipe, recipeUnderstanding) => {
+const findCompletenessProblems = (recipe) => {
   const problems = [];
-  const { ingredients, steps } = recipe;
-
-  const requiredText = ['dish_name', 'description', 'healthier_explanation', 'category', 'cuisine', 'diet_type', 'difficulty'];
-  const missingFields = requiredText.filter(f => typeof recipe[f] !== 'string' || !recipe[f].trim());
-  if (!Number(recipe.servings)) missingFields.push('servings');
-  if (missingFields.length > 0) {
-    problems.push(`Missing required fields: ${missingFields.join(', ')}. Fill each one for THIS dish.`);
+  const requiredText = ['dish_name', 'description', 'healthier_explanation', 'category', 'cuisine', 'difficulty'];
+  const missing = requiredText.filter((f) => typeof recipe[f] !== 'string' || !recipe[f].trim());
+  if (missing.length) problems.push(`Missing required fields: ${missing.join(', ')}.`);
+  if (recipe.healthier_explanation && recipe.description && recipe.healthier_explanation.trim() === recipe.description.trim()) {
+    problems.push('"healthier_explanation" repeats the description; explain the specific ingredient and method changes.');
   }
-  if (recipe.healthier_explanation && recipe.healthier_explanation.trim() === recipe.description.trim()) {
-    problems.push('"healthier_explanation" repeats the description; explain the specific ingredient and method changes made in this recipe.');
+  if ((recipe.ingredients || []).length < MIN_INGREDIENTS) {
+    problems.push(`Only ${(recipe.ingredients || []).length} ingredients listed; list every ingredient including spices, oil, salt and garnish.`);
   }
-
-  if (ingredients.length < MIN_INGREDIENTS) {
-    problems.push(`Only ${ingredients.length} ingredients listed; list every ingredient including spices, oil, salt and garnish.`);
-  }
-  const missingQty = ingredients.filter(i => !i.qty || VAGUE_QUANTITY.test(i.qty.trim())).map(i => i.name);
-  if (missingQty.length > 0) {
-    problems.push(`Missing or vague quantities for: ${missingQty.join(', ')}.`);
-  }
-  const placeholders = ingredients.filter(i => PLACEHOLDER_PATTERNS.some(p => p.test(i.name))).map(i => i.name);
-  if (placeholders.length > 0) {
-    problems.push(`Replace generic placeholder ingredients with the real ones this dish uses: ${placeholders.join(', ')}.`);
-  }
-  const totalInstructions = steps.reduce((sum, s) => sum + s.instructions.length, 0);
-  if (steps.length < MIN_STEPS || totalInstructions < MIN_TOTAL_INSTRUCTIONS) {
-    problems.push(`The method is too short (${steps.length} steps, ${totalInstructions} instructions); write every step from prep to serving with full detail.`);
-  }
-  const thinSteps = steps.filter(s => s.instructions.length < MIN_INSTRUCTIONS_PER_STEP).map(s => s.title);
-  if (thinSteps.length > 0) {
-    problems.push(`These steps have no instructions: ${thinSteps.join(', ')}.`);
-  }
-  const text = stepsText(steps);
-  const unused = ingredients.filter(i => !isIngredientUsed(i.name, text)).map(i => i.name);
-  if (unused.length > MAX_UNUSED_INGREDIENTS) {
-    problems.push(`These ingredients are listed but never used in the method: ${unused.join(', ')}.`);
-  }
-  const calories = Number(recipe.calories);
-  if (!calories || calories < MIN_CALORIES || calories > MAX_CALORIES) {
-    problems.push(`Calories per serving (${recipe.calories}) are missing or unrealistic; recalculate from the quantities.`);
-  }
-
-  // Ingredients only: steps may mention optional sides ("serve with roti") that aren't part of the dish.
-  const tags = recipe.details.dietaryTags.map(t => t.toLowerCase().replace(/-/g, ' '));
-  for (const diet of ['Vegan', 'Vegetarian', 'Gluten Free', 'Dairy Free']) {
-    if (!tags.includes(diet.toLowerCase())) continue;
-    const dietCheck = validateDietModule({ ingredients, steps: [] }, diet);
-    if (!dietCheck.isValid) {
-      problems.push(`Dietary tag "${diet}" is wrong: ${dietCheck.errors.join('; ')}. Fix the tag or the ingredients.`);
-    }
-  }
-  const dietType = (recipe.diet_type || '').toLowerCase();
-  const claimedDiet = /vegan/.test(dietType) ? 'Vegan' : /^vegetarian|lacto|ovo/.test(dietType) ? 'Vegetarian' : null;
-  if (claimedDiet) {
-    const dietCheck = validateDietModule({ ingredients, steps: [] }, claimedDiet);
-    if (!dietCheck.isValid) {
-      problems.push(`diet_type "${recipe.diet_type}" contradicts the ingredients: ${dietCheck.errors.join('; ')}.`);
-    }
-  }
-
-  const primary = recipeUnderstanding?.primaryIngredients || [];
-  const identity = validateDishIdentityModule(recipe, primary, recipe.optimization_plan);
-  if (primary.length > 0 && identity.missingCount > Math.floor(primary.length / 2)) {
-    problems.push(`The recipe no longer resembles "${recipe.dish_name}": most of its defining ingredients (${primary.join(', ')}) are missing.`);
-  }
-
+  const placeholders = (recipe.ingredients || []).filter((i) => PLACEHOLDER_PATTERNS.some((p) => p.test(i.name))).map((i) => i.name);
+  if (placeholders.length) problems.push(`Replace generic placeholder ingredients with the real ones this dish uses: ${placeholders.join(', ')}.`);
+  const noQty = (recipe.ingredients || []).filter((i) => i.quantity == null || i.quantity === '').map((i) => i.name);
+  if (noQty.length) problems.push(`Give a numeric quantity for: ${noQty.join(', ')}.`);
   return problems;
 };
 
-const normalizeSteps = (steps) =>
-  (Array.isArray(steps) ? steps : [])
-    .filter(s => s && typeof s === 'object')
-    .map((s, idx) => ({
-      title: s.title || `Step ${idx + 1}`,
-      time: s.time || '',
-      heatLevel: s.heatLevel || '',
-      instructions: (Array.isArray(s.instructions) ? s.instructions : [s.instructions])
-        .filter(i => typeof i === 'string' && i.trim())
-        .map(i => i.trim()),
-      chefTip: s.chefTip || '',
-      commonMistakes: s.commonMistakes || ''
-    }));
-
 const stringList = (value) =>
   (Array.isArray(value) ? value : [])
-    .filter(v => typeof v === 'string' && v.trim())
-    .map(v => v.trim());
+    .filter((v) => typeof v === 'string' && v.trim())
+    .map((v) => v.trim());
 
-const buildDetails = (bp) => ({
-  subtitle: bp.subtitle || '',
-  prepTime: bp.prepTime || '',
-  cookTime: bp.cookTime || '',
-  totalTime: bp.totalTime || '',
-  spiceLevel: bp.spiceLevel || '',
-  nutrition: {
-    carbohydrates: bp.carbohydrates || '',
-    sugar: bp.sugar || ''
+const toSteps = (steps) =>
+  (Array.isArray(steps) ? steps : [])
+    .filter((s) => s && typeof s === 'object')
+    .map((s, idx) => ({
+      stepNumber: Number(s.stepNumber) || idx + 1,
+      title: s.title || `Step ${idx + 1}`,
+      technique: s.technique || '',
+      heatLevel: s.heatLevel || 'None',
+      temperature: s.temperature || '',
+      activeMinutes: Number.isFinite(Number(s.activeMinutes)) ? Number(s.activeMinutes) : null,
+      passiveMinutes: Number.isFinite(Number(s.passiveMinutes)) ? Number(s.passiveMinutes) : 0,
+      passiveLabel: s.passiveLabel || '',
+      dependsOn: Array.isArray(s.dependsOn) ? s.dependsOn.map(Number).filter(Number.isFinite) : idx > 0 ? [idx] : [],
+      optional: Boolean(s.optional),
+      produces: s.produces || '',
+      ingredientsUsed: (Array.isArray(s.ingredientsUsed) ? s.ingredientsUsed : [])
+        .filter((u) => u && u.ref)
+        .map((u) => ({ ref: String(u.ref), quantity: Number(u.quantity), unit: String(u.unit || '') })),
+      instructions: (Array.isArray(s.instructions) ? s.instructions : [s.instructions])
+        .filter((i) => typeof i === 'string' && i.trim())
+        .map((i) => i.trim()),
+      visualCues: stringList(s.visualCues),
+      chefTip: s.chefTip || '',
+      commonMistakes: s.commonMistakes || '',
+    }));
+
+// Every field comes from this one model response. Nutrition, times, diet
+// labels and allergens are then calculated by the validator, never taken
+// from the model.
+const toDraftRecipe = (bp, goals, optimizationPlan) => ({
+  dish_name: (bp.dish_name || '').replace(/^(healthy\s+)+/i, 'Healthy '),
+  category: bp.category || '',
+  description: bp.description || '',
+  servings: Number(bp.servings) || bp.servings,
+  difficulty: bp.difficulty || '',
+  cuisine: bp.cuisine || '',
+  diet_type: bp.diet_type || '',
+  meal_type: bp.meal_type || '',
+  best_for: goals.join(', '),
+  ingredients: (bp.ingredients || [])
+    .filter((ing) => ing && ing.name)
+    .map((ing) => ({
+      ref: ing.ref || '',
+      name: String(ing.name).trim(),
+      quantity: ing.quantity === '' || ing.quantity == null ? null : Number(ing.quantity),
+      unit: ing.unit || '',
+      household: ing.household || '',
+      prep: ing.prep || '',
+      group: ing.group || '',
+      optional: Boolean(ing.optional),
+      toTaste: Boolean(ing.toTaste),
+      ...(ing.eatenFraction != null ? { eatenFraction: Number(ing.eatenFraction), eatenFractionReason: ing.eatenFractionReason || '' } : {}),
+    })),
+  steps: toSteps(bp.steps),
+  optimization_plan: optimizationPlan,
+  healthier_explanation: bp.healthier_explanation || '',
+  details: {
+    subtitle: bp.subtitle || '',
+    visualDescription: bp.visualDescription || '',
+    spiceLevel: bp.spiceLevel || '',
+    equipment: stringList(bp.equipment),
+    preparationNotes: stringList(bp.preparationNotes),
+    chefTips: stringList(bp.chefTips),
+    thingsToAvoid: stringList(bp.thingsToAvoid),
+    substitutions: (Array.isArray(bp.substitutions) ? bp.substitutions : [])
+      .filter((s) => s && s.ingredient && s.substitute)
+      .map((s) => ({ ingredient: s.ingredient, substitute: s.substitute, note: s.note || '' })),
+    variations: stringList(bp.variations),
+    servingSuggestions: stringList(bp.servingSuggestions),
+    storageInstructions: stringList(bp.storageInstructions),
+    reheatingInstructions: stringList(bp.reheatingInstructions),
+    allergens: stringList(bp.allergens),
+    dietaryTags: stringList(bp.dietaryTags),
+    healthSwaps: (Array.isArray(bp.healthSwaps) ? bp.healthSwaps : []).filter((s) => s && s.original && s.replacement),
+    healthBenefits: stringList(bp.healthBenefits),
+    proteinBoost: bp.proteinBoost || '',
   },
-  equipment: stringList(bp.equipment),
-  preparationNotes: stringList(bp.preparationNotes),
-  chefTips: stringList(bp.chefTips),
-  substitutions: (Array.isArray(bp.substitutions) ? bp.substitutions : [])
-    .filter(s => s && s.ingredient && s.substitute)
-    .map(s => ({ ingredient: s.ingredient, substitute: s.substitute, note: s.note || '' })),
-  variations: stringList(bp.variations),
-  servingSuggestions: stringList(bp.servingSuggestions),
-  storageInstructions: stringList(bp.storageInstructions),
-  reheatingInstructions: stringList(bp.reheatingInstructions),
-  allergens: stringList(bp.allergens),
-  dietaryTags: stringList(bp.dietaryTags),
-  healthBenefits: stringList(bp.healthBenefits),
-  proteinBoost: bp.proteinBoost || ''
 });
 
-// Every field comes from this one model response; nothing is filled from templates
-// or other recipes, so missing fields are caught by findCompletenessProblems instead.
-const toDraftRecipe = (bp, goals, optimizationPlan) => {
-  return {
-    dish_name: (bp.dish_name || '').replace(/^(healthy\s+)+/i, 'Healthy '),
-    category: bp.category || '',
-    description: bp.description || '',
-    calories: bp.calories,
-    protein: bp.protein,
-    fiber: bp.fiber,
-    fats: bp.fats,
-    sodium: bp.sodium,
-    cooking_time: bp.totalTime || bp.cookTime || '',
-    servings: bp.servings,
-    difficulty: bp.difficulty || '',
-    cuisine: bp.cuisine || '',
-    diet_type: bp.diet_type || '',
-    meal_type: bp.meal_type || '',
-    best_for: goals.join(', '),
-    ingredients: (bp.ingredients || [])
-      .filter(ing => ing && ing.name)
-      .map(ing => ({ name: ing.name, qty: ing.quantity || ing.qty || '', prep: ing.prep || '', group: ing.group || '' })),
-    steps: normalizeSteps(bp.steps),
-    optimization_plan: optimizationPlan,
-    healthier_explanation: bp.healthier_explanation || '',
-    details: buildDetails(bp)
-  };
-};
+/** Orders attempts: fewer hard failures first, then higher quality score. */
+const better = (a, b) => !b || a.hard < b.hard || (a.hard === b.hard && a.quality.score > b.quality.score);
 
 /**
  * Generates a healthy recipe with Groq in 3 phases:
- * understanding/evidence/optimization, full-recipe generation, and validation/review.
- * Retries with targeted feedback until the recipe is complete and safe.
+ * understanding/evidence/optimization, full-recipe generation, and
+ * deterministic validation + review. Retries with the validator's exact
+ * findings until the recipe passes every hard check.
  */
 export const generateHealthyRecipeText = async (inputs) => {
   const { dish: dishName, goals = [] } = inputs;
@@ -224,51 +165,81 @@ export const generateHealthyRecipeText = async (inputs) => {
   const optimizationPlan = await planOptimizations(recipeUnderstanding, inputs, evidence.summary);
   addTokens(optimizationPlan?.token_metrics);
 
+  // What the dish must contain to still be itself; stored with the recipe so
+  // authenticity can be re-checked later.
+  const dishProfile = {
+    dish: dishName,
+    cuisine: recipeUnderstanding?.cuisine || '',
+    primaryIngredients: recipeUnderstanding?.primaryIngredients || [],
+    signatureFlavorings: recipeUnderstanding?.signatureFlavorings || [],
+    swaps: (optimizationPlan?.swaps || []).map((s) => ({ original: s.originalIngredient, replacement: s.substitutedWith, reason: s.reason })),
+  };
+
   let feedback = '';
   let best = null;
+  const attempts = [];
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       logger.info(`Phase 2: Generating full recipe (attempt ${attempt}/${MAX_ATTEMPTS})`);
-      const blueprint = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding, feedback);
+      let blueprint = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding, feedback, best?.draft || null);
+      if (!blueprint && best?.draft) {
+        logger.warn(`Attempt ${attempt}: repair request failed; generating a fresh draft with the feedback instead.`);
+        blueprint = await buildRecipeBlueprint(dishName, inputs, optimizationPlan, evidence.summary, recipeUnderstanding, feedback, null);
+      } else if (blueprint && best?.draft) {
+        // Fields left out of the repair prompt come back from the draft.
+        for (const k of PROSE_FIELDS) if (blueprint[k] == null && best.draft[k] != null) blueprint[k] = best.draft[k];
+        (blueprint.steps || []).forEach((s) => {
+          const old = (best.draft.steps || []).find((o) => Number(o.stepNumber) === Number(s.stepNumber));
+          if (old) {
+            if (s.chefTip == null) s.chefTip = old.chefTip;
+            if (s.commonMistakes == null) s.commonMistakes = old.commonMistakes;
+          }
+        });
+      }
       if (!blueprint) {
         logger.warn(`Attempt ${attempt}: recipe model returned nothing.`);
         continue;
       }
       addTokens(blueprint.token_metrics);
 
-      const draftRecipe = toDraftRecipe(blueprint, goals, optimizationPlan);
-      draftRecipe.token_metrics = { model_used: blueprint.token_metrics?.model_used };
+      const { recipe: draft, report, quality } = validateAndCorrectRecipe(
+        toDraftRecipe(blueprint, goals, optimizationPlan),
+        { inputs, mode: 'generate', dishProfile }
+      );
+      draft.token_metrics = { model_used: blueprint.token_metrics?.model_used };
 
-      const completenessProblems = findCompletenessProblems(draftRecipe, recipeUnderstanding);
-      if (completenessProblems.length > 0) {
-        logger.warn(`Attempt ${attempt}: recipe incomplete: ${completenessProblems.join(' | ')}`);
-        feedback = completenessProblems.join(' ');
+      const extra = findCompletenessProblems(draft);
+      const safety = validateGeneratedRecipe(draft, inputs, evidence.summary, recipeUnderstanding);
+      const hardIssues = [
+        ...report.issues.filter((i) => i.severity === 'hard').map((i) => i.message),
+        ...extra,
+        ...(safety.isValid ? [] : safety.errors.map((e) => `Safety: ${e}`)),
+      ];
+      const { token_metrics: _tm, ...rawDraft } = blueprint;
+      const candidate = { recipe: draft, draft: rawDraft, safety_review: safety, report, quality, hard: hardIssues.length, hardIssues };
+      attempts.push({ attempt, hard: hardIssues.length, score: quality.score, corrections: report.corrections.length });
+      logger.info(`Attempt ${attempt}: ${hardIssues.length} hard issue(s), quality ${quality.score}/10, ${report.corrections.length} correction(s).`);
+      if (better(candidate, best)) best = candidate;
+
+      if (hardIssues.length === 0) {
+        logger.info('Phase 3: Reviewing recipe steps');
+        const review = await reviewRecipeSteps(dishName, draft.steps, inputs, optimizationPlan, evidence.summary);
+        addTokens(review?.token_metrics);
+        safety.confidence = Math.round(safety.confidence * 0.7 + (review.safetyConfidence ?? 90) * 0.3);
+        safety.reviewer_problems = review.problems || [];
+        if (quality.passed) {
+          logger.info(`Recipe passed validation on attempt ${attempt} with quality ${quality.score}/10.`);
+          break;
+        }
+        // No hard failures but below the quality bar: ask for the weakest areas.
+        const weak = Object.values(quality.categories).filter((c) => c.score < 80).flatMap((c) => c.notes.filter((n) => !n.startsWith('Corrected')).slice(0, 3));
+        feedback = weak.slice(0, MAX_FEEDBACK_ITEMS).join(' ');
+        if (!feedback) break;
         continue;
       }
-
-      logger.info('Phase 3: Reviewing recipe steps and running rule-based validators');
-      const reviewerFeedback = await reviewRecipeSteps(dishName, draftRecipe.steps, inputs, optimizationPlan, evidence.summary);
-      addTokens(reviewerFeedback?.token_metrics);
-
-      const validatedResult = validateGeneratedRecipe(draftRecipe, inputs, evidence.summary, recipeUnderstanding);
-      validatedResult.confidence = Math.round(validatedResult.confidence * 0.7 + (reviewerFeedback.safetyConfidence ?? 90) * 0.3);
-      validatedResult.reviewer_problems = reviewerFeedback.problems || [];
-
-      if (!validatedResult.isValid) {
-        logger.warn(`Attempt ${attempt}: failed safety checks: ${validatedResult.errors.join(', ')}`);
-        feedback = `Safety violations: ${validatedResult.errors.join('; ')}.`;
-        continue;
-      }
-
-      if (!best || validatedResult.confidence > best.safety_review.confidence) {
-        best = { recipe: draftRecipe, safety_review: validatedResult };
-      }
-      if (validatedResult.confidence >= 80) {
-        logger.info(`Recipe validated on attempt ${attempt}. Confidence: ${validatedResult.confidence}%`);
-        break;
-      }
-      feedback = (validatedResult.warnings || []).join(' ');
+      logger.warn(`Attempt ${attempt} failed validation: ${hardIssues.join(' | ')}`);
+      feedback = best.hardIssues.slice(0, MAX_FEEDBACK_ITEMS).map((m, i) => `${i + 1}. ${m}`).join('\n');
     } catch (error) {
       logger.error(`Attempt ${attempt} failed in recipe pipeline: ${error.message}`);
     }
@@ -276,23 +247,29 @@ export const generateHealthyRecipeText = async (inputs) => {
 
   if (!best) {
     logger.error(`Recipe generation failed for "${dishName}" after ${MAX_ATTEMPTS} attempts.`);
-    return {
-      success: false,
-      error: 'We could not generate a complete recipe right now. Please try again in a moment.'
-    };
+    return { success: false, error: 'We could not generate a complete recipe right now. Please try again in a moment.' };
+  }
+  if (!best.safety_review.isValid) {
+    logger.error(`Every attempt for "${dishName}" failed the safety checks: ${best.safety_review.errors.join('; ')}`);
+    return { success: false, error: 'We could not generate a recipe that meets your allergy and diet requirements. Please adjust your selections and try again.', errors: best.safety_review.errors };
+  }
+  if (best.hard > 0) {
+    logger.warn(`Recipe for "${dishName}" still has ${best.hard} unresolved hard issue(s) after ${attempts.length} attempt(s); returning it marked as not validated.`);
   }
 
+  best.recipe.details.generation = { attempts, model: best.recipe.token_metrics?.model_used || null };
   best.recipe.token_metrics = {
     prompt_tokens: totalPromptTokens,
     completion_tokens: totalCompletionTokens,
     total_tokens: totalPromptTokens + totalCompletionTokens,
-    model_used: best.recipe.token_metrics?.model_used
+    model_used: best.recipe.token_metrics?.model_used,
   };
 
   return {
     success: true,
     recipe: best.recipe,
     safety_review: best.safety_review,
-    health_note: HEALTH_NOTE
+    quality: best.quality,
+    health_note: HEALTH_NOTE,
   };
 };
